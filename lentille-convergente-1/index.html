@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lentille mince convergente</title>
+<style>
+  :root{--bg:#f6f7fb;--card:#fff;--txt:#1d2433;--muted:#5b6577;--axis:#444;--obj:#1f6feb;--img:#d1242f;--lens:#0b7285;}
+  @media (prefers-color-scheme: dark){:root{--bg:#12151c;--card:#1b2029;--txt:#e6e9ef;--muted:#9aa4b5;--axis:#bbb;
+        --obj:#58a6ff;--img:#ff6b6b;--lens:#3bc9db;}}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+  main{max-width:1000px;margin:auto;padding:16px}
+  h1{font-size:1.3rem;margin:.2rem 0 .8rem}
+  .card{background:var(--card);border-radius:12px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.12);margin-bottom:12px}
+  canvas{width:100%;display:block;touch-action:none;cursor:grab;border-radius:8px}
+  .hint{font-size:.9rem;color:var(--muted);margin:8px 0 0}
+  .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 18px}
+  label{font-size:.9rem;color:var(--muted);display:flex;justify-content:space-between}
+  label b{color:var(--txt)}
+  input[type=range]{width:100%}
+  .chk{display:flex;align-items:center;font-size:.9rem}
+  .res{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
+  .res div{background:var(--bg);border-radius:8px;padding:8px}
+  .res span{display:block;font-size:.8rem;color:var(--muted)}
+  .res b{font-size:1.1rem}
+  .o{color:var(--obj)} .i{color:var(--img)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Lentille mince convergente — objet et image</h1>
+
+  <div class="card">
+    <canvas id="cv"></canvas>
+    <p class="hint">Fais glisser l'objet <b class="o">AB</b> directement sur le schéma.</p>
+  </div>
+
+  <div class="card controls">
+    <div>
+      <label>Distance focale f' <b id="vf"></b></label>
+      <input type="range" id="sf" min="3" max="20" step="0.5" value="10">
+    </div>
+    <div>
+      <label>Position de l'objet OA <b id="va"></b></label>
+      <input type="range" id="sa" min="-60" max="-1" step="0.5" value="-25">
+    </div>
+    <div>
+      <label>Taille de l'objet AB <b id="vh"></b></label>
+      <input type="range" id="sh" min="-8" max="8" step="0.5" value="4">
+    </div>
+    <div class="chk">
+      <label><input type="checkbox" id="cg" checked>&nbsp;Graduations</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="res">
+      <div><span>Position objet OA</span><b class="o" id="rOA"></b></div>
+      <div><span>Position image OA'</span><b class="i" id="rOAp"></b></div>
+      <div><span>Taille image A'B'</span><b class="i" id="rAB"></b></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const $ = id => document.getElementById(id);
+const S = {f:10, OA:-25, h:4};
+const RANGE_X = 70, RANGE_Y = 22;   // demi-largeur / demi-hauteur visibles (cm)
+let W, H, k, ky, dpr;
+
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+
+function resize(){
+  dpr = window.devicePixelRatio || 1;
+  W = cv.clientWidth; H = Math.max(260, Math.min(480, W*0.55));
+  cv.style.height = H+'px'; cv.width = W*dpr; cv.height = H*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  k = W/(2*RANGE_X); ky = Math.min(k*1.6, H/(2*RANGE_Y));
+  draw();
+}
+const X = x => W/2 + x*k;
+const Y = y => H/2 - y*ky;
+const toX = px => (px - W/2)/k;
+const toY = py => (H/2 - py)/ky;
+
+function arrow(x, y0, y1, color, label, dashed){
+  ctx.save(); ctx.strokeStyle = ctx.fillStyle = color; ctx.lineWidth = 3;
+  if(dashed) ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.moveTo(X(x),Y(y0)); ctx.lineTo(X(x),Y(y1)); ctx.stroke();
+  ctx.setLineDash([]);
+  const s = Math.sign(y1-y0)||1, px = X(x), py = Y(y1);
+  ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px-6,py+10*s); ctx.lineTo(px+6,py+10*s); ctx.closePath(); ctx.fill();
+  ctx.font = 'bold 14px system-ui';
+  ctx.fillText(label[0], px-5, Y(y0)+ (y1>=y0?18:-8));
+  ctx.fillText(label[1], px+8, py + (y1>=y0?4:12));
+  ctx.restore();
+}
+
+function image(){
+  const {f,OA,h} = S;
+  if(Math.abs(OA+f) < 1e-9) return null;   // objet au foyer : image à l'infini
+  const OAp = f*OA/(f+OA);
+  return {OAp, hp: h*OAp/OA};
+}
+
+function draw(){
+  const {f,OA,h} = S, im = image();
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = css('--card'); ctx.fillRect(0,0,W,H);
+
+  if($('cg').checked){
+    ctx.strokeStyle = 'rgba(128,128,128,.15)'; ctx.lineWidth=1;
+    for(let x=-RANGE_X; x<=RANGE_X; x+=5){ctx.beginPath();ctx.moveTo(X(x),0);ctx.lineTo(X(x),H);ctx.stroke();}
+    for(let y=-RANGE_Y; y<=RANGE_Y; y+=2){ctx.beginPath();ctx.moveTo(0,Y(y));ctx.lineTo(W,Y(y));ctx.stroke();}
+    ctx.fillStyle = css('--muted'); ctx.font='10px system-ui';
+    for(let x=-60; x<=60; x+=20) if(x) ctx.fillText(x+' cm', X(x)-14, H-6);
+  }
+  // axe optique
+  ctx.strokeStyle = css('--axis'); ctx.lineWidth=1.2; ctx.setLineDash([10,4,2,4]);
+  ctx.beginPath(); ctx.moveTo(0,Y(0)); ctx.lineTo(W,Y(0)); ctx.stroke(); ctx.setLineDash([]);
+
+  // lentille
+  const L = RANGE_Y*0.85;
+  ctx.strokeStyle = ctx.fillStyle = css('--lens'); ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(X(0),Y(L)); ctx.lineTo(X(0),Y(-L)); ctx.stroke();
+  [[L,1],[-L,-1]].forEach(([y,s])=>{ ctx.beginPath(); ctx.moveTo(X(0),Y(y));
+    ctx.lineTo(X(0)-8,Y(y)+12*s); ctx.moveTo(X(0),Y(y)); ctx.lineTo(X(0)+8,Y(y)+12*s); ctx.stroke(); });
+
+  ctx.font='bold 13px system-ui';
+  [[0,'O'],[-f,'F'],[f,"F'"]].forEach(([x,n])=>{
+    ctx.beginPath(); ctx.arc(X(x),Y(0),3.5,0,7); ctx.fill(); ctx.fillText(n, X(x)+4, Y(0)+16);
+  });
+
+  arrow(OA,0,h,css('--obj'),['A','B'],false);
+  if(im){
+    const visible = Math.abs(im.OAp)<=RANGE_X && Math.abs(im.hp)<=RANGE_Y*1.1;
+    if(visible) arrow(im.OAp,0,im.hp,css('--img'),["A'","B'"],im.OAp<0);
+    else { ctx.fillStyle=css('--img'); ctx.font='13px system-ui'; ctx.fillText('Image hors du champ', 10, 20); }
+  }
+  updateText(im);
+}
+
+const fmt = (v,d=1) => (Math.abs(v)<1e-9?0:v).toFixed(d).replace('.',',');
+
+function updateText(im){
+  const {f,OA,h} = S;
+  $('vf').textContent = fmt(f)+' cm'; $('va').textContent = fmt(OA)+' cm'; $('vh').textContent = fmt(h)+' cm';
+  $('sf').value=f; $('sa').value=OA; $('sh').value=h;
+  $('rOA').textContent = fmt(OA)+' cm';
+  $('rOAp').textContent = im ? fmt(im.OAp)+' cm' : '∞';
+  $('rAB').textContent  = im ? fmt(im.hp)+' cm'  : '∞';
+}
+
+// commandes
+$('sf').oninput = e => {S.f=+e.target.value; draw();};
+$('sa').oninput = e => {S.OA=+e.target.value; draw();};
+$('sh').oninput = e => {S.h=+e.target.value; draw();};
+$('cg').onchange = draw;
+
+// glisser l'objet
+let drag=false;
+function pos(e){const r=cv.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top];}
+cv.addEventListener('pointerdown', e=>{
+  const [px,py]=pos(e);
+  if(Math.abs(px-X(S.OA))<25 && py>Math.min(Y(0),Y(S.h))-25 && py<Math.max(Y(0),Y(S.h))+25){
+    drag=true; cv.setPointerCapture(e.pointerId); cv.style.cursor='grabbing';
+  }
+});
+cv.addEventListener('pointermove', e=>{
+  if(!drag) return;
+  const [px,py]=pos(e);
+  S.OA = Math.round(Math.min(-1, Math.max(-60, toX(px)))*2)/2;
+  const y = Math.round(Math.min(8, Math.max(-8, toY(py)))*2)/2;
+  S.h = y===0 ? 0.5 : y;
+  draw();
+});
+['pointerup','pointercancel'].forEach(t=>cv.addEventListener(t,()=>{drag=false;cv.style.cursor='grab';}));
+
+window.addEventListener('resize', resize);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+resize();
+</script>
+</body>
+</html>

@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulation d'une onde sonore</title>
+<style>
+  :root{
+    --bg:#f3f5f9; --card:#fff; --ink:#1d2433; --muted:#5b6578;
+    --accent:#2563eb; --hot:#dc2626; --cold:#2563eb; --line:#d9dee8; --soft:#eef2f8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:16px 20px 0}
+  h1{font-size:1.35rem;margin:0}
+  header p{margin:4px 0 0;color:var(--muted);font-size:.9rem}
+  main{display:grid;grid-template-columns:290px 1fr;gap:16px;padding:16px 20px 24px}
+  @media(max-width:880px){main{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .card h2{font-size:.95rem;margin:0 0 8px}
+  .panel{display:flex;flex-direction:column;gap:14px}
+  .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{flex:1;border:0;background:var(--soft);padding:9px;font-size:.9rem;cursor:pointer;color:var(--ink)}
+  .seg button.on{background:var(--accent);color:#fff;font-weight:600}
+  .btn{width:100%;border:0;border-radius:8px;padding:10px;font-size:.95rem;font-weight:600;cursor:pointer;background:var(--accent);color:#fff}
+  .btn.alt{background:var(--soft);color:var(--ink);border:1px solid var(--line);font-weight:500}
+  .btn.stop{background:var(--hot)}
+  .row{display:flex;gap:8px}
+  .ctl{display:flex;flex-direction:column;gap:3px;font-size:.88rem}
+  .ctl .lab{display:flex;justify-content:space-between}
+  .ctl .val{font-variant-numeric:tabular-nums;color:var(--accent);font-weight:600}
+  input[type=range]{width:100%}
+  label.chk{font-size:.88rem;display:flex;gap:6px;align-items:center;cursor:pointer}
+  .info{font-size:.88rem;line-height:1.6;font-variant-numeric:tabular-nums}
+  .info b{color:var(--accent)}
+  .hidden{display:none}
+  .views{display:flex;flex-direction:column;gap:14px;min-width:0}
+  .cv{width:100%}
+  canvas{display:block}
+  .legend{font-size:.8rem;color:var(--muted);margin-top:6px;display:flex;gap:14px;flex-wrap:wrap}
+  .sw{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-2px;margin-right:4px}
+  .note{font-size:.78rem;color:var(--muted);line-height:1.4}
+</style>
+</head>
+<body>
+<header>
+  <h1>Simulation d'une onde sonore</h1>
+  <p>Onde longitudinale : les particules du milieu oscillent autour de leur position d'équilibre, la perturbation se propage.</p>
+</header>
+
+<main>
+  <aside class="panel">
+    <div class="card panel">
+      <div>
+        <h2>Mode d'émission</h2>
+        <div class="seg">
+          <button id="mImp">Impulsion</button>
+          <button id="mCont" class="on">Continu</button>
+        </div>
+      </div>
+
+      <button id="action" class="btn">Arrêter la source</button>
+
+      <div id="oneBox" class="panel" style="gap:8px">
+        <button id="one" class="btn" style="background:#7c3aed">〰 Émettre une seule période</button>
+        <label class="chk"><input type="checkbox" id="autoPause" checked> Pause automatique à la fin de la période</label>
+      </div>
+
+      <div class="row">
+        <button id="pause" class="btn alt">⏸ Pause</button>
+        <button id="reset" class="btn alt">↺ Réinitialiser</button>
+      </div>
+    </div>
+
+    <div class="card panel">
+      <h2>Réglages</h2>
+      <div class="ctl" id="cF">
+        <div class="lab"><span>Fréquence f</span><span class="val" id="vF"></span></div>
+        <input type="range" id="f" min="0.25" max="2" step="0.05" value="1">
+      </div>
+      <div class="ctl hidden" id="cD">
+        <div class="lab"><span>Durée de l'impulsion</span><span class="val" id="vD"></span></div>
+        <input type="range" id="D" min="0.2" max="1.2" step="0.05" value="0.5">
+      </div>
+      <div class="ctl">
+        <div class="lab"><span>Amplitude du haut-parleur</span><span class="val" id="vA"></span></div>
+        <input type="range" id="A" min="0.05" max="0.25" step="0.01" value="0.15">
+      </div>
+      <div class="ctl">
+        <div class="lab"><span>Célérité v</span><span class="val" id="vV"></span></div>
+        <input type="range" id="v" min="1" max="4" step="0.1" value="2">
+      </div>
+      <div class="ctl">
+        <div class="lab"><span>Position du micro</span><span class="val" id="vM"></span></div>
+        <input type="range" id="mic" min="0.5" max="6" step="0.05" value="3">
+      </div>
+      <label class="chk"><input type="checkbox" id="track" checked> Mettre en évidence une particule</label>
+    </div>
+
+    <div class="card">
+      <h2>Grandeurs</h2>
+      <div class="info" id="info"></div>
+      <p class="note">Modèle ralenti : les valeurs sont choisies pour être observables à l'écran (dans l'air, v ≈ 340 m/s).</p>
+    </div>
+  </aside>
+
+  <section class="views">
+    <div class="card">
+      <h2>Le milieu de propagation</h2>
+      <div class="cv"><canvas id="cMed"></canvas></div>
+      <div class="legend">
+        <span>Particules resserrées : compression (surpression)</span>
+        <span>Particules écartées : dilatation (dépression)</span>
+        <span><span class="sw" style="background:#dc2626;border-radius:50%"></span>particule suivie</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Surpression en fonction de la position (à l'instant t)</h2>
+      <div class="cv"><canvas id="cPx"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Signal enregistré par le micro (en fonction du temps)</h2>
+      <div class="cv"><canvas id="cMic"></canvas></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const SCALE = 100;          // px par mètre
+  const XS = 70;              // position de repos de la membrane (px)
+  const PREF = 0.5;           // déformation de référence pour l'affichage de la pression
+  const STRAIN_MAX = 0.85;    // limite pour éviter que les particules se croisent
+  const WIN = 8;              // fenêtre temporelle du micro (s)
+  const H_MED = 280, H_PX = 160, H_MIC = 170;
+
+  const $ = id => document.getElementById(id);
+  const P = { f:1, D:0.5, A:0.15, v:2, mic:3, track:true, autoPause:true };
+  const S = { mode:'continu', pulses:[], trains:[], single:null, singleDone:false };
+  let T = 0, running = true, last = null;
+  let micBuf = [];
+  let W = 800, Lmax = 7;
+  let particles = [], tracked = -1;
+  let med, px, mic;
+
+  // ---------- Canvas ----------
+  function setup(c, h){
+    const dpr = window.devicePixelRatio || 1;
+    const w = c.parentElement.clientWidth;
+    c.width = w*dpr; c.height = h*dpr;
+    c.style.width = w+'px'; c.style.height = h+'px';
+    const ctx = c.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return { ctx, w, h };
+  }
+  function rand(seed){ let s = seed; return () => (s = (s*16807) % 2147483647) / 2147483647; }
+
+  function layout(){
+    med = setup($('cMed'), H_MED);
+    px  = setup($('cPx'),  H_PX);
+    mic = setup($('cMic'), H_MIC);
+    W = med.w;
+    Lmax = (W - XS - 12) / SCALE;
+    const m = $('mic');
+    m.max = Math.max(1, (Lmax - 0.2)).toFixed(2);
+    if (P.mic > +m.max){ P.mic = +m.max; m.value = P.mic; }
+    buildParticles();
+    updateLabels();
+  }
+
+  function buildParticles(){
+    particles = [];
+    const r = rand(12345);
+    const top = 50, bottom = H_MED - 26, rows = 24, sp = 5;
+    let best = 1e9;
+    for (let x = XS + 8; x < W - 8; x += sp){
+      for (let k = 0; k < rows; k++){
+        const x0 = x + (r()-0.5)*2.5;
+        const y  = top + (k+0.5)*(bottom-top)/rows + (r()-0.5)*4;
+        particles.push({ x0, y, d:(x0-XS)/SCALE });
+        const score = Math.abs(x0 - (XS + 1.5*SCALE)) + Math.abs(k - 12)*20;
+        if (score < best){ best = score; tracked = particles.length-1; }
+      }
+    }
+  }
+
+  // ---------- Physique ----------
+  // u : déplacement (m) ; p : surpression relative (unité arbitraire)
+  function field(d){
+    const tau = T - d / P.v;
+    let u = 0, du = 0;
+    for (const q of S.pulses){
+      const a = tau - q.t0;
+      if (a > 0 && a < q.D){
+        const w = Math.PI / q.D;
+        u  += q.A * Math.sin(w*a);
+        du += q.A * w * Math.cos(w*a);
+      }
+    }
+    for (const c of S.trains){
+      const a = tau - c.start;
+      const end = c.stop == null ? Infinity : c.stop - c.start;
+      if (a > 0 && a < end){
+        const w = 2*Math.PI*c.f;
+        u  += c.A * Math.sin(w*a);
+        du += c.A * w * Math.cos(w*a);
+      }
+    }
+    return [u, du / P.v / PREF];
+  }
+
+  const effA = w => Math.min(P.A, STRAIN_MAX * P.v / w);
+  const activeTrain = () => S.trains.find(c => c.stop == null);
+
+  function startTrain(at){
+    S.trains.push({ start:at, stop:null, f:P.f, A:effA(2*Math.PI*P.f) });
+  }
+  function stopTrain(){
+    const c = activeTrain(); if (!c) return null;
+    const n = Math.ceil(Math.max(0, T - c.start) * c.f);   // on finit la période en cours
+    c.stop = c.start + n / c.f;
+    return c.stop;
+  }
+  function emitPulse(){
+    S.pulses.push({ t0:T, D:P.D, A:effA(Math.PI/P.D) });
+  }
+  function clearWaves(){ S.pulses = []; S.trains = []; S.single = null; S.singleDone = false; }
+
+  // Émission d'une seule période (illustration de λ = v × T)
+  function emitOnePeriod(){
+    clearWaves(); micBuf = [];
+    const c = { start:T, stop:T + 1/P.f, f:P.f, A:effA(2*Math.PI*P.f) };
+    S.trains.push(c); S.single = c;
+    if (!running){ running = true; $('pause').textContent = '⏸ Pause'; }
+  }
+
+  function drawOnePeriod(ctx, w, h){
+    const c = S.single; if (!c || T <= c.start) return;
+    const front = Math.min((T - c.start) * P.v, Lmax);
+    const tail  = Math.max(0, (T - c.stop) * P.v);
+    if (tail >= Lmax) return;
+    const done = T >= c.stop - 1e-9;
+    const xa = XS + tail*SCALE, xb = XS + front*SCALE, y = 38;
+    const col = done ? '#7c3aed' : '#ea580c';
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2;
+
+    ctx.setLineDash([5,4]);
+    ctx.beginPath(); ctx.moveTo(xb, y); ctx.lineTo(xb, h-20); ctx.stroke();
+    if (done){ ctx.beginPath(); ctx.moveTo(xa, y); ctx.lineTo(xa, h-20); ctx.stroke(); }
+    ctx.setLineDash([]);
+
+    ctx.beginPath(); ctx.moveTo(xa, y+7); ctx.lineTo(xa, y); ctx.lineTo(xb, y); ctx.lineTo(xb, y+7); ctx.stroke();
+
+    const label = done
+      ? `Émise pendant T = ${fmt(1/c.f)} s → l'onde s'étend sur λ = v × T = ${fmt(P.v/c.f)} m`
+      : `t = ${fmt(T - c.start)} s : le front d'onde a parcouru ${fmt(front)} m`;
+    ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center';
+    const tw = ctx.measureText(label).width;
+    const xt = Math.max(XS + tw/2, Math.min(w - tw/2 - 4, (xa+xb)/2));
+    ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillRect(xt - tw/2 - 4, y - 22, tw + 8, 17);
+    ctx.fillStyle = col; ctx.fillText(label, xt, y - 9);
+  }
+  function cleanup(){
+    const lim = Lmax / P.v + 0.5;
+    S.pulses = S.pulses.filter(q => T - (q.t0 + q.D) < lim);
+    S.trains = S.trains.filter(c => c.stop == null || T - c.stop < lim);
+  }
+
+  // ---------- Dessin ----------
+  function drawMedium(){
+    const { ctx, w, h } = med;
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle = '#fafbfd'; ctx.fillRect(XS, 44, w-XS, h-62);
+
+    // particules
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    for (let i = 0; i < particles.length; i++){
+      if (P.track && i === tracked) continue;
+      const q = particles[i];
+      const x = q.x0 + field(q.d)[0]*SCALE;
+      ctx.moveTo(x + 1.6, q.y); ctx.arc(x, q.y, 1.6, 0, 7);
+    }
+    ctx.fill();
+    if (P.track && particles[tracked]){
+      const q = particles[tracked];
+      const x = q.x0 + field(q.d)[0]*SCALE;
+      ctx.strokeStyle = 'rgba(220,38,38,.5)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(q.x0, q.y-11); ctx.lineTo(q.x0, q.y+11); ctx.stroke();
+      ctx.fillStyle = '#dc2626';
+      ctx.beginPath(); ctx.arc(x, q.y, 4.5, 0, 7); ctx.fill();
+    }
+
+    // haut-parleur
+    const xm = XS + field(0)[0]*SCALE;
+    const cy = h/2;
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(8, cy-22, 22, 44);
+    ctx.beginPath();
+    ctx.moveTo(30, cy-22); ctx.lineTo(xm-2, cy-62); ctx.lineTo(xm-2, cy+62); ctx.lineTo(30, cy+22);
+    ctx.closePath(); ctx.fillStyle = '#94a3b8'; ctx.fill();
+    ctx.fillStyle = '#1e293b'; ctx.fillRect(xm-3, cy-64, 6, 128);
+    ctx.fillStyle = '#1e293b'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('haut-parleur', 38, h-6);
+
+    // micro
+    const xMic = XS + P.mic*SCALE;
+    ctx.setLineDash([4,4]); ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(xMic, 18); ctx.lineTo(xMic, h-20); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#16a34a';
+    ctx.beginPath(); ctx.arc(xMic, 10, 6, 0, 7); ctx.fill();
+    ctx.fillRect(xMic-1.5, 14, 3, 6);
+
+    // règle
+    ctx.strokeStyle = '#64748b'; ctx.fillStyle = '#475569'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(XS, h-16); ctx.lineTo(w-6, h-16); ctx.stroke();
+    ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+    for (let m = 0; m <= Lmax + 1e-6; m += 0.5){
+      const x = XS + m*SCALE, major = Math.abs(m - Math.round(m)) < 1e-6;
+      ctx.beginPath(); ctx.moveTo(x, h-16); ctx.lineTo(x, h-(major?10:13)); ctx.stroke();
+      if (major) ctx.fillText(m + ' m', x, h-1);
+    }
+
+    drawOnePeriod(ctx, w, h);
+  }
+
+  function axes(ctx, w, h, x0, title){
+    ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x0, h/2); ctx.lineTo(w-4, h/2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0, 8); ctx.lineTo(x0, h-8); ctx.stroke();
+    ctx.save(); ctx.translate(12, h/2); ctx.rotate(-Math.PI/2);
+    ctx.fillStyle = '#64748b'; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText(title, 0, 0); ctx.restore();
+  }
+  const yScale = h => (h/2 - 14) / 1.8;
+
+  function drawPx(){
+    const { ctx, w, h } = px;
+    ctx.clearRect(0,0,w,h);
+    // graduations alignées sur le milieu
+    ctx.strokeStyle = '#eef2f7';
+    for (let m = 0; m <= Lmax; m += 0.5){
+      const x = XS + m*SCALE; ctx.beginPath(); ctx.moveTo(x,8); ctx.lineTo(x,h-14); ctx.stroke();
+    }
+    axes(ctx, w, h, XS, 'surpression');
+    ctx.fillStyle = '#475569'; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+    for (let m = 1; m <= Lmax; m++) ctx.fillText(m + ' m', XS + m*SCALE, h-2);
+
+    const k = yScale(h);
+    ctx.strokeStyle = '#1d4ed8'; ctx.lineWidth = 2; ctx.beginPath();
+    for (let x = XS; x < w-4; x += 2){
+      const y = h/2 - Math.max(-1.8, Math.min(1.8, field((x-XS)/SCALE)[1]))*k;
+      x === XS ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    const xMic = XS + P.mic*SCALE;
+    ctx.setLineDash([4,4]); ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(xMic, 6); ctx.lineTo(xMic, h-14); ctx.stroke(); ctx.setLineDash([]);
+
+    // repère de longueur d'onde en mode continu
+    const c = activeTrain();
+    if (S.mode === 'continu' && c){
+      const lam = P.v / c.f;
+      const reach = (T - c.start) * P.v;
+      if (reach > lam + 0.3 && XS + (0.3+lam)*SCALE < w){
+        // place la flèche entre deux maxima de surpression proches de la source
+        const a0 = T - c.start;                       // âge de la source
+        const per = 1 / c.f;
+        const ph = ((a0 - per/4) % per + per) % per;  // retard jusqu'au maximum le plus récent
+        let d1 = ph * P.v;
+        if (d1 < 0.15) d1 += lam;
+        const d2 = d1 + lam;
+        if (d2 < Math.min(reach, Lmax)){
+          const x1 = XS + d1*SCALE, x2 = XS + d2*SCALE, y = 14;
+          ctx.strokeStyle = '#7c3aed'; ctx.fillStyle = '#7c3aed'; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke();
+          [[x1,1],[x2,-1]].forEach(([x,s]) => {
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+6*s, y-4); ctx.lineTo(x+6*s, y+4); ctx.fill();
+            ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, h/2); ctx.stroke(); ctx.setLineDash([]);
+          });
+          ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center';
+          ctx.fillText('λ', (x1+x2)/2, y+14);
+        }
+      }
+    }
+  }
+
+  function drawMic(){
+    const { ctx, w, h } = mic;
+    ctx.clearRect(0,0,w,h);
+    const x0 = 34, x1 = w - 6;
+    const tx = t => x1 - (T - t) / WIN * (x1 - x0);
+    ctx.font = '10px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = '#475569';
+    // grille temporelle (secondes absolues)
+    for (let s = Math.ceil((T-WIN)*2)/2; s <= T; s += 0.5){
+      const x = tx(s); if (x < x0) continue;
+      const major = Math.abs(s - Math.round(s)) < 1e-6;
+      ctx.strokeStyle = major ? '#e2e8f0' : '#f1f5f9';
+      ctx.beginPath(); ctx.moveTo(x, 8); ctx.lineTo(x, h-14); ctx.stroke();
+      if (major) ctx.fillText(Math.round(s) + ' s', x, h-2);
+    }
+    axes(ctx, w, h, x0, 'micro');
+    const k = yScale(h);
+    ctx.strokeStyle = '#16a34a'; ctx.lineWidth = 2; ctx.beginPath();
+    let started = false;
+    for (const s of micBuf){
+      const x = tx(s.t); if (x < x0) continue;
+      const y = h/2 - Math.max(-1.8, Math.min(1.8, s.p))*k;
+      started ? ctx.lineTo(x,y) : (ctx.moveTo(x,y), started = true);
+    }
+    ctx.stroke();
+  }
+
+  // ---------- Interface ----------
+  const fmt = (x, n=2) => x.toFixed(n).replace('.', ',');
+
+  function updateLabels(){
+    $('vF').textContent = fmt(P.f) + ' Hz';
+    $('vD').textContent = fmt(P.D) + ' s';
+    $('vA').textContent = fmt(P.A*100, 1) + ' cm';
+    $('vV').textContent = fmt(P.v, 1) + ' m/s';
+    $('vM').textContent = fmt(P.mic) + ' m';
+    const delay = P.mic / P.v;
+    let html = `Célérité : <b>v = ${fmt(P.v,1)} m/s</b><br>`;
+    if (S.mode === 'continu'){
+      html += `Fréquence : <b>f = ${fmt(P.f)} Hz</b><br>
+               Période : <b>T = 1/f = ${fmt(1/P.f)} s</b><br>
+               Longueur d'onde : <b>λ = v/f = ${fmt(P.v/P.f)} m</b><br>`;
+    } else {
+      html += `Durée de l'impulsion : <b>${fmt(P.D)} s</b><br>
+               Étendue spatiale : <b>v·Δt = ${fmt(P.v*P.D)} m</b><br>`;
+    }
+    html += `Distance source–micro : <b>d = ${fmt(P.mic)} m</b><br>
+             Retard au micro : <b>τ = d/v = ${fmt(delay)} s</b>`;
+    $('info').innerHTML = html;
+    refreshAction();
+  }
+
+  function refreshAction(){
+    const b = $('action');
+    if (S.mode === 'impulsion'){ b.textContent = '📢 Émettre une impulsion'; b.className = 'btn'; }
+    else if (activeTrain()){ b.textContent = '⏹ Arrêter la source'; b.className = 'btn stop'; }
+    else { b.textContent = '▶ Démarrer la source'; b.className = 'btn'; }
+  }
+
+  function setMode(m){
+    S.mode = m; clearWaves(); micBuf = [];
+    $('mImp').classList.toggle('on', m === 'impulsion');
+    $('mCont').classList.toggle('on', m === 'continu');
+    $('cF').classList.toggle('hidden', m !== 'continu');
+    $('cD').classList.toggle('hidden', m !== 'impulsion');
+    $('oneBox').classList.toggle('hidden', m !== 'continu');
+    if (m === 'continu') startTrain(T);
+    updateLabels();
+  }
+
+  $('mImp').onclick = () => setMode('impulsion');
+  $('mCont').onclick = () => setMode('continu');
+  $('action').onclick = () => {
+    if (S.mode === 'impulsion') emitPulse();
+    else if (activeTrain()) stopTrain();
+    else startTrain(T);
+    refreshAction();
+  };
+  $('one').onclick = () => { emitOnePeriod(); refreshAction(); };
+  $('autoPause').onchange = e => P.autoPause = e.target.checked;
+  $('pause').onclick = () => {
+    running = !running;
+    $('pause').textContent = running ? '⏸ Pause' : '▶ Reprendre';
+  };
+  $('reset').onclick = () => {
+    T = 0; micBuf = []; clearWaves();
+    if (S.mode === 'continu') startTrain(0);
+    updateLabels();
+  };
+
+  $('f').oninput = e => {
+    P.f = +e.target.value;
+    if (S.mode === 'continu' && activeTrain()){
+      const end = stopTrain();             // fin de la période en cours…
+      S.trains.push({ start:end, stop:null, f:P.f, A:effA(2*Math.PI*P.f) }); // …puis nouvelle fréquence
+    }
+    updateLabels();
+  };
+  $('D').oninput = e => { P.D = +e.target.value; updateLabels(); };
+  $('A').oninput = e => {
+    P.A = +e.target.value;
+    for (const c of S.trains) if (c.stop == null) c.A = effA(2*Math.PI*c.f);
+    updateLabels();
+  };
+  $('v').oninput = e => {
+    P.v = +e.target.value;
+    const wasOn = !!activeTrain();
+    clearWaves(); micBuf = [];
+    if (S.mode === 'continu' && wasOn) startTrain(T);
+    updateLabels();
+  };
+  $('mic').oninput = e => { P.mic = +e.target.value; micBuf = []; updateLabels(); };
+  $('track').onchange = e => P.track = e.target.checked;
+
+  // ---------- Boucle ----------
+  function frame(ts){
+    if (last == null) last = ts;
+    const dt = Math.min(0.05, (ts - last) / 1000); last = ts;
+    if (running){
+      T += dt;
+      if (S.single && !S.singleDone && T >= S.single.stop){
+        S.singleDone = true;
+        if (P.autoPause){
+          T = S.single.stop;   // arrêt pile à t = T
+          running = false;
+          $('pause').textContent = '▶ Reprendre';
+        }
+      }
+      micBuf.push({ t:T, p:field(P.mic)[1] });
+      while (micBuf.length && micBuf[0].t < T - WIN - 0.2) micBuf.shift();
+      cleanup();
+      refreshAction();
+    }
+    drawMedium(); drawPx(); drawMic();
+    requestAnimationFrame(frame);
+  }
+
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(layout, 120); });
+  layout();
+  setMode('continu');
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

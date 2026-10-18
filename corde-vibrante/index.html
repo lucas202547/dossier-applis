@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Corde vibrante – onde d'élongation</title>
+<style>
+  :root{
+    --bg:#f5f7fb; --card:#fff; --text:#1d2433; --muted:#6b7385; --border:#dde2ec;
+    --corde:#2563eb; --point:#e11d48; --accent:#0d9488; --grid:#e8ecf3; --axe:#9aa3b5;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1420; --card:#171e2e; --text:#e6e9f0; --muted:#97a0b3; --border:#2a3348;
+      --corde:#60a5fa; --point:#fb7185; --accent:#2dd4bf; --grid:#222b3d; --axe:#56607a; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
+  header{padding:16px;max-width:1000px;margin:auto}
+  h1{font-size:1.35rem;margin:0 0 4px}
+  header p{margin:0;color:var(--muted);font-size:.92rem}
+  main{max-width:1000px;margin:auto;padding:0 16px 24px;display:grid;gap:14px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px}
+  .card h2{font-size:1rem;margin:0 0 8px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .card h2 span{font-weight:400;color:var(--muted);font-size:.85rem}
+  canvas{width:100%;display:block;border-radius:8px}
+  #cCorde{height:260px} #cPoint{height:180px}
+  .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px 18px}
+  label{display:block;font-size:.88rem}
+  label b{float:right;font-variant-numeric:tabular-nums;color:var(--accent)}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  button{border:1px solid var(--border);background:var(--bg);color:var(--text);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:.9rem}
+  button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .seg button{border:none;border-radius:0}
+  .infos{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+  .info{background:var(--bg);border-radius:8px;padding:8px 10px}
+  .info small{display:block;color:var(--muted);font-size:.75rem}
+  .info strong{font-variant-numeric:tabular-nums}
+  .formule{font-family:"Cambria Math",Georgia,serif;font-size:1rem;margin-top:10px;color:var(--muted)}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <h1>Onde d'élongation le long d'une corde</h1>
+  <p>Visualisez l'élongation y(x, t) de la corde et l'évolution temporelle d'un point M.</p>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Aspect de la corde à l'instant t <span id="tAff">t = 0,000 s</span></h2>
+    <canvas id="cCorde"></canvas>
+  </section>
+
+  <section class="card" id="cardPoint">
+    <h2>Élongation du point M en fonction du temps <span id="yMAff">y<sub>M</sub> = 0,0 cm</span></h2>
+    <canvas id="cPoint"></canvas>
+  </section>
+
+  <section class="card">
+    <div class="seg" role="group" aria-label="Type d'onde">
+      <button id="bProg" class="on">Onde progressive</button>
+      <button id="bStat">Onde stationnaire</button>
+    </div>
+
+    <div class="controls" style="margin-top:14px">
+      <label>Amplitude A <b id="vA">3,0 cm</b>
+        <input type="range" id="A" min="0.5" max="6" step="0.1" value="3"></label>
+      <label id="lblF">Fréquence f <b id="vF">2,0 Hz</b>
+        <input type="range" id="F" min="0.5" max="6" step="0.1" value="2"></label>
+      <label id="lblN" class="hidden">Mode propre n <b id="vN">2</b>
+        <input type="range" id="N" min="1" max="6" step="1" value="2"></label>
+      <label>Célérité v <b id="vV">1,5 m/s</b>
+        <input type="range" id="V" min="0.5" max="4" step="0.1" value="1.5"></label>
+      <label>Position du point M <b id="vX">0,60 m</b>
+        <input type="range" id="X" min="0" max="2" step="0.01" value="0.6"></label>
+      <label>Vitesse d'animation <b id="vS">×0,25</b>
+        <input type="range" id="S" min="0.05" max="1" step="0.05" value="0.25"></label>
+    </div>
+
+    <div class="btns">
+      <button id="bPlay" class="on">⏸ Pause</button>
+      <button id="bReset">↺ Recommencer</button>
+      <button id="bLambda" class="on">λ affichée</button>
+      <button id="bMSeul">Point M seul</button>
+      <button id="bImpulsion">Source : continue</button>
+      <button id="bFront" class="on">Front affiché</button>
+      <button id="bM" class="on">Point M affiché</button>
+      <button id="bGraphe" class="on">Graphe y<sub>M</sub>(t) affiché</button>
+      <button id="bPas">Pas à pas +T/8</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="infos">
+      <div class="info"><small>Période T = 1/f</small><strong id="iT">–</strong></div>
+      <div class="info" id="boxL"><small>Longueur d'onde λ = v·T</small><strong id="iL">–</strong></div>
+      <div class="info"><small>Fréquence f</small><strong id="iF">–</strong></div>
+      <div class="info"><small id="iRLbl">Retard de M : τ = x<sub>M</sub>/v</small><strong id="iR">–</strong></div>
+    </div>
+    <div class="formule" id="formule"></div>
+  </section>
+</main>
+
+<script>
+const L = 2;                 // longueur de corde affichée (m)
+const $ = id => document.getElementById(id);
+const fr = (x, d) => x.toFixed(d).replace('.', ',');
+
+let mode = 'prog', play = true, showLambda = true, mSeul = false, impulsion = false, showFront = true, showM = true;
+let t = 0, last = null;
+let histo = [];              // [{t, y}] pour le graphe de M
+const FENETRE = 4;           // durée affichée sur le graphe de M (s)
+
+const p = () => {
+  const A = +$('A').value / 100, v = +$('V').value, n = +$('N').value;
+  const f = mode === 'prog' ? +$('F').value : n * v / (2 * L);
+  return { A, v, n, f, T: 1 / f, lambda: v / f, xM: +$('X').value, speed: +$('S').value };
+};
+
+// Élongation y(x,t)
+function y(x, t, q) {
+  if (mode === 'prog') {
+    const tau = x / q.v;              // retard
+    if (t < tau) return 0;            // front d'onde pas encore arrivé
+    if (impulsion && t - tau > q.T) return 0;  // la source s'est arrêtée après une période
+    return q.A * Math.sin(2 * Math.PI * q.f * (t - tau));
+  }
+  return q.A * Math.sin(q.n * Math.PI * x / L) * Math.cos(2 * Math.PI * q.f * t);
+}
+
+// ---- Canvas utilitaires ----
+function prep(c) {
+  const r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (c.width !== Math.round(r.width * dpr) || c.height !== Math.round(r.height * dpr)) {
+    c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr);
+  }
+  const ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: r.width, h: r.height };
+}
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+function axes(ctx, w, h, m, xmax, xlab, ticks, fmt) {
+  ctx.strokeStyle = css('--grid'); ctx.lineWidth = 1;
+  ctx.font = '11px system-ui'; ctx.fillStyle = css('--muted');
+  for (let i = 0; i <= ticks; i++) {
+    const X = m.l + i * (w - m.l - m.r) / ticks;
+    ctx.beginPath(); ctx.moveTo(X, m.t); ctx.lineTo(X, h - m.b); ctx.stroke();
+    ctx.textAlign = 'center'; ctx.fillText(fmt(i * xmax / ticks), X, h - m.b + 14);
+  }
+  const y0 = m.t + (h - m.t - m.b) / 2;
+  ctx.strokeStyle = css('--axe');
+  ctx.beginPath(); ctx.moveTo(m.l, y0); ctx.lineTo(w - m.r, y0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(m.l, m.t); ctx.lineTo(m.l, h - m.b); ctx.stroke();
+  ctx.textAlign = 'right'; ctx.fillText(xlab, w - m.r, h - 4);
+  return y0;
+}
+
+// ---- Dessin de la corde ----
+function drawCorde(q) {
+  const { ctx, w, h } = prep($('cCorde'));
+  ctx.clearRect(0, 0, w, h);
+  const m = { l: 40, r: 14, t: 14, b: 30 };
+  const y0 = axes(ctx, w, h, m, L, 'x (m)', 8, v => fr(v, 2));
+  const sx = (w - m.l - m.r) / L;
+  const ymax = mode === 'stat' ? 0.07 : 0.07;
+  const sy = (h - m.t - m.b) / 2 / ymax;
+  const X = x => m.l + x * sx, Y = v => y0 - v * sy;
+
+  // graduations y
+  ctx.fillStyle = css('--muted'); ctx.textAlign = 'right';
+  [-6, -3, 3, 6].forEach(c => ctx.fillText(c + '', m.l - 5, Y(c / 100) + 4));
+  ctx.save(); ctx.translate(11, y0); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center';
+  ctx.fillText('y (cm)', 0, 0); ctx.restore();
+
+  if (!mSeul) {
+  // enveloppe en stationnaire
+  if (mode === 'stat') {
+    ctx.setLineDash([4, 4]); ctx.strokeStyle = css('--axe');
+    [1, -1].forEach(s => {
+      ctx.beginPath();
+      for (let i = 0; i <= 300; i++) {
+        const x = i * L / 300, v = s * q.A * Math.abs(Math.sin(q.n * Math.PI * x / L));
+        i ? ctx.lineTo(X(x), Y(v)) : ctx.moveTo(X(x), Y(v));
+      }
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    // nœuds
+    ctx.fillStyle = css('--text');
+    for (let k = 0; k <= q.n; k++) {
+      ctx.beginPath(); ctx.arc(X(k * L / q.n), y0, 4, 0, 7); ctx.fill();
+    }
+  }
+
+  // corde
+  ctx.strokeStyle = css('--corde'); ctx.lineWidth = 3; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (let i = 0; i <= 500; i++) {
+    const x = i * L / 500;
+    i ? ctx.lineTo(X(x), Y(y(x, t, q))) : ctx.moveTo(X(x), Y(y(x, t, q)));
+  }
+  ctx.stroke();
+
+  // front d'onde
+  if (mode === 'prog') {
+    const xf = q.v * t;
+    if (showFront && xf < L) {
+      ctx.strokeStyle = css('--accent'); ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(X(xf), m.t); ctx.lineTo(X(xf), h - m.b); ctx.stroke();
+      ctx.setLineDash([]); ctx.fillStyle = css('--accent'); ctx.textAlign = 'center';
+      ctx.fillText('front', X(xf), m.t + 8);
+    }
+    // source
+    ctx.fillStyle = css('--text'); ctx.fillRect(X(0) - 5, Y(y(0, t, q)) - 5, 10, 10);
+  }
+
+  // λ
+  if (showLambda && q.lambda < L) {
+    let x1 = null;
+    if (mode === 'prog' && impulsion) {
+      // l'ébranlement occupe exactement [v(t−T), vt], de longueur λ
+      const xq = q.v * (t - q.T);
+      if (xq >= 0 && xq + q.lambda <= L) x1 = xq;
+    } else if (mode === 'prog') {
+      // repérer une crête : phase 2πf(t - x/v) = π/2 [2π]
+      const xf = Math.min(q.v * t, L);
+      for (let k = 10; k > -10; k--) {
+        const x = q.v * (t - (0.25 + k) / q.f);
+        if (x >= 0 && x + q.lambda <= xf) { x1 = x; break; }
+      }
+    } else if (q.n >= 2) x1 = 0;
+    if (x1 !== null) {
+      const ya = y0 + (h - m.t - m.b) / 2 - 8;
+      ctx.strokeStyle = css('--accent'); ctx.fillStyle = css('--accent'); ctx.lineWidth = 1.5;
+      const a = X(x1), b = X(x1 + q.lambda);
+      ctx.beginPath(); ctx.moveTo(a, ya); ctx.lineTo(b, ya); ctx.stroke();
+      [[a, 1], [b, -1]].forEach(([p, s]) => {
+        ctx.beginPath(); ctx.moveTo(p, ya); ctx.lineTo(p + 7 * s, ya - 4); ctx.lineTo(p + 7 * s, ya + 4); ctx.fill();
+      });
+      ctx.textAlign = 'center'; ctx.font = 'bold 13px system-ui';
+      ctx.fillText('λ', (a + b) / 2, ya - 6);
+      ctx.setLineDash([2, 3]);
+      [a, b].forEach(p => { ctx.beginPath(); ctx.moveTo(p, m.t); ctx.lineTo(p, ya); ctx.stroke(); });
+      ctx.setLineDash([]);
+    }
+  }
+  } // fin if (!mSeul)
+
+  // point M
+  if (!showM) return;
+  const yM = y(q.xM, t, q);
+  ctx.fillStyle = css('--point');
+  ctx.beginPath(); ctx.arc(X(q.xM), Y(yM), 6, 0, 7); ctx.fill();
+  ctx.font = 'bold 13px system-ui'; ctx.textAlign = 'left';
+  ctx.fillText('M', X(q.xM) + 8, Y(yM) - 8);
+}
+
+// ---- Graphe y_M(t) ----
+function drawPoint(q) {
+  const { ctx, w, h } = prep($('cPoint'));
+  ctx.clearRect(0, 0, w, h);
+  const m = { l: 40, r: 14, t: 10, b: 28 };
+  const t0 = Math.max(0, t - FENETRE);
+  const y0 = axes(ctx, w, h, m, FENETRE, 't (s)', 8, v => fr(v + t0, 1));
+  const sx = (w - m.l - m.r) / FENETRE, sy = (h - m.t - m.b) / 2 / 0.07;
+  const X = tt => m.l + (tt - t0) * sx, Y = v => y0 - v * sy;
+  ctx.fillStyle = css('--muted'); ctx.textAlign = 'right';
+  [-6, 6].forEach(c => ctx.fillText(c + '', m.l - 5, Y(c / 100) + 4));
+
+  // courbe calculée exactement (indépendante du pas d'animation)
+  ctx.strokeStyle = css('--point'); ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  const N = 400;
+  for (let i = 0; i <= N; i++) {
+    const tt = t0 + i * (t - t0) / N;
+    i ? ctx.lineTo(X(tt), Y(y(q.xM, tt, q))) : ctx.moveTo(X(tt), Y(y(q.xM, tt, q)));
+  }
+  ctx.stroke();
+  ctx.fillStyle = css('--point');
+  ctx.beginPath(); ctx.arc(X(t), Y(y(q.xM, t, q)), 4, 0, 7); ctx.fill();
+
+  // retard τ
+  if (mode === 'prog') {
+    const tau = q.xM / q.v;
+    if (tau >= t0 && tau <= t) {
+      ctx.strokeStyle = css('--accent'); ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(X(tau), m.t); ctx.lineTo(X(tau), h - m.b); ctx.stroke();
+      ctx.setLineDash([]); ctx.fillStyle = css('--accent'); ctx.textAlign = 'left';
+      ctx.fillText('τ', X(tau) + 4, m.t + 10);
+    }
+  }
+}
+
+// ---- Infos ----
+function infos(q) {
+  $('vA').textContent = fr(q.A * 100, 1) + ' cm';
+  $('vF').textContent = fr(+$('F').value, 1) + ' Hz';
+  $('vN').textContent = q.n;
+  $('vV').textContent = fr(q.v, 1) + ' m/s';
+  $('vX').textContent = fr(q.xM, 2) + ' m';
+  $('vS').textContent = '×' + fr(q.speed, 2);
+  $('iT').textContent = fr(q.T, 3) + ' s';
+  $('iL').textContent = fr(q.lambda, 3) + ' m';
+  $('iF').textContent = fr(q.f, 3) + ' Hz';
+  if (mode === 'prog') {
+    $('iRLbl').innerHTML = 'Retard de M : τ = x<sub>M</sub>/v';
+    $('iR').textContent = fr(q.xM / q.v, 3) + ' s';
+    $('formule').innerHTML = impulsion
+      ? 'y(x, t) = A · sin[2π (t/T − x/λ)] &nbsp;pour x/v ≤ t ≤ x/v + T, sinon y = 0 — l\'ébranlement mesure λ'
+      : 'y(x, t) = A · sin[2π (t/T − x/λ)] &nbsp;(pour t ≥ x/v), source en x = 0';
+  } else {
+    $('iRLbl').textContent = 'Fréquence propre fₙ = n·v / 2L';
+    $('iR').textContent = 'L = ' + L + ' m';
+    $('formule').innerHTML = 'y(x, t) = A · sin(nπx/L) · cos(2π fₙ t) &nbsp;— nœuds espacés de λ/2';
+  }
+  $('tAff').textContent = 't = ' + fr(t, 3) + ' s';
+  $('yMAff').innerHTML = 'y<sub>M</sub> = ' + fr(y(q.xM, t, q) * 100, 1) + ' cm';
+}
+
+function render() { const q = p(); drawCorde(q); drawPoint(q); infos(q); }
+
+// Avance le temps ; en mode « 1 période », arrêt automatique pile à t = T
+function avancer(dt) {
+  const T = p().T, avant = t;
+  t += dt;
+  if (impulsion && mode === 'prog' && avant < T - 1e-9 && t >= T) {
+    t = T;
+    if (play) $('bPlay').click();   // met en pause
+  }
+}
+
+function loop(ts) {
+  if (last !== null && play) avancer(Math.min((ts - last) / 1000, 0.05) * p().speed);
+  last = ts; render(); requestAnimationFrame(loop);
+}
+
+// ---- Interactions ----
+function setMode(m) {
+  mode = m; t = 0;
+  $('bProg').classList.toggle('on', m === 'prog');
+  $('bStat').classList.toggle('on', m === 'stat');
+  $('lblF').classList.toggle('hidden', m === 'stat');
+  $('lblN').classList.toggle('hidden', m === 'prog');
+  $('bImpulsion').classList.toggle('hidden', m === 'stat');
+  $('bFront').classList.toggle('hidden', m === 'stat');
+}
+$('bGraphe').onclick = () => {
+  const visible = $('cardPoint').classList.toggle('hidden') === false;
+  $('bGraphe').classList.toggle('on', visible);
+  $('bGraphe').innerHTML = 'Graphe y<sub>M</sub>(t) ' + (visible ? 'affiché' : 'masqué');
+};
+$('bM').onclick = () => {
+  showM = !showM;
+  $('bM').classList.toggle('on', showM);
+  $('bM').textContent = showM ? 'Point M affiché' : 'Point M masqué';
+};
+$('bFront').onclick = () => {
+  showFront = !showFront;
+  $('bFront').classList.toggle('on', showFront);
+  $('bFront').textContent = showFront ? 'Front affiché' : 'Front masqué';
+};
+$('bImpulsion').onclick = () => {
+  impulsion = !impulsion; t = 0;
+  if (!play) $('bPlay').click();
+  $('bImpulsion').classList.toggle('on', impulsion);
+  $('bImpulsion').textContent = impulsion ? 'Source : arrêt après 1 période' : 'Source : continue';
+};
+$('bProg').onclick = () => setMode('prog');
+$('bStat').onclick = () => setMode('stat');
+$('bPlay').onclick = () => { play = !play; $('bPlay').textContent = play ? '⏸ Pause' : '▶ Lecture'; $('bPlay').classList.toggle('on', play); };
+$('bReset').onclick = () => { t = 0; if (!play) $('bPlay').click(); };
+$('bLambda').onclick = () => {
+  showLambda = !showLambda;
+  $('bLambda').classList.toggle('on', showLambda);
+  $('bLambda').textContent = showLambda ? 'λ affichée' : 'λ masquée';
+  $('boxL').classList.toggle('hidden', !showLambda);
+};
+$('bMSeul').onclick = () => {
+  mSeul = !mSeul;
+  $('bMSeul').classList.toggle('on', mSeul);
+  $('bMSeul').textContent = mSeul ? 'Afficher la corde' : 'Point M seul';
+};
+$('bPas').onclick = () => { if (play) $('bPlay').click(); avancer(p().T / 8); };
+// changer f ou v en onde progressive : on relance pour garder une onde cohérente
+['F', 'V'].forEach(id => $(id).addEventListener('input', () => { if (mode === 'prog') t = 0; }));
+$('N').addEventListener('input', () => { t = 0; });
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

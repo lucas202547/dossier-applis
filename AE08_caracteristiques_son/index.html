@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Caractéristiques d'un son – Simulation AE08</title>
+<style>
+:root{
+  --bg:#eef1f6;--panel:#ffffff;--ink:#1b2333;--muted:#5d677a;--line:#d6dce6;
+  --accent:#1d4ed8;--accent-ink:#fff;
+  --plotbg:#ffffff;--grid:#e4e8ef;--axis:#4b5563;--cursor:#0f766e;--origin:#ea580c;
+  --c1:#1d4ed8;--c2:#d62828;--c3:#15803d;--c4:#c026d3;--guitar:#7c3aed;
+  --ok:#15803d;--okbg:#dcfce7;--bad:#b91c1c;--badbg:#fee2e2;--warn:#a16207;--warnbg:#fef3c7;
+  --wood:#d9a65a;--wood2:#9a6a2a;--neck:#6b4423;--string:#9ca3af;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0e131b;--panel:#161d28;--ink:#e6e9ef;--muted:#9aa4b5;--line:#2a3442;
+  --accent:#3b82f6;
+  --plotbg:#0b1018;--grid:#1d2633;--axis:#9aa4b5;--cursor:#2dd4bf;--origin:#fb923c;
+  --c1:#60a5fa;--c2:#f87171;--c3:#4ade80;--c4:#e879f9;--guitar:#a78bfa;
+  --ok:#4ade80;--okbg:#0f2e1c;--bad:#f87171;--badbg:#3a1414;--warn:#fbbf24;--warnbg:#3a2c0a;
+  --wood:#8a6a36;--wood2:#5e4520;--neck:#4a2f18;--string:#cbd5e1;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:14px 20px 0;background:var(--panel);border-bottom:1px solid var(--line)}
+header .t{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline}
+header h1{font-size:19px;margin:0}
+header .t span{color:var(--muted);font-size:14px}
+nav{display:flex;gap:4px;margin-top:10px;overflow-x:auto}
+nav button{border:none;border-bottom:3px solid transparent;border-radius:0;background:none;padding:8px 14px;color:var(--muted);font-weight:600;white-space:nowrap}
+nav button.on{color:var(--ink);border-bottom-color:var(--accent)}
+.page{display:none;max-width:1500px;margin:0 auto;padding:16px}
+.page.on{display:block}
+.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px}
+@media (max-width:1050px){.grid{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+section h2{font-size:15px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+section h3{font-size:15px;margin:14px 0 6px}
+button{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:7px;padding:6px 11px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.primary kbd{background:transparent;color:inherit;border-color:rgba(255,255,255,.6)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.spacer{flex:1}
+kbd{font:12px ui-monospace,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--bg)}
+input.cell,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 7px}
+input.cell{width:110px}
+textarea{width:100%;min-height:60px;resize:vertical}
+.ok{border-color:var(--ok)!important;background:var(--okbg)!important}
+.bad{border-color:var(--bad)!important;background:var(--badbg)!important}
+.warn{border-color:var(--warn)!important;background:var(--warnbg)!important}
+.msg{font-size:13px;margin-top:6px}
+.msg .g{color:var(--ok)} .msg .r{color:var(--bad)} .msg .o{color:var(--warn)}
+.hint{color:var(--muted);font-size:13px;margin:6px 0 0}
+.status{font-size:13px;color:var(--muted)}
+.def{border-left:4px solid var(--accent);background:var(--bg);padding:8px 12px;border-radius:0 7px 7px 0;font-size:14px;margin:8px 0}
+canvas.scope{width:100%;display:block;border:1px solid var(--line);border-radius:8px;cursor:crosshair;background:var(--plotbg);touch-action:pan-y}
+.readout{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:6px 10px;display:flex;flex-wrap:wrap;gap:4px 18px;min-height:32px;align-items:center}
+.readout .orig{color:var(--origin);font-weight:600}
+.readout .dt{font-weight:700;color:var(--cursor)}
+.tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}
+.tools button{padding:4px 9px;font-size:14px}
+.win{margin-bottom:14px}
+.win .wt{display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:4px}
+.win .wt b{display:inline-block;width:18px;height:3px;border-radius:2px}
+#guitar{width:100%;height:auto;display:block;user-select:none}
+.gwrap{display:flex;gap:14px;align-items:center}
+.gwrap #guitar{flex:1;min-width:0}
+.gside{flex:0 0 170px;display:flex;flex-direction:column;gap:8px}
+.gside button{padding:12px 10px;font-size:16px;line-height:1.5}
+@media (max-width:640px){.gwrap{flex-direction:column;align-items:stretch}.gside{flex-basis:auto}}
+.str{cursor:pointer}
+.str .s{transition:stroke .2s}
+.str:hover .s{stroke:var(--accent)}
+.str:hover circle.lbl,.vib circle.lbl{stroke:var(--accent);stroke-width:2}
+.vib .s{animation:vib .05s linear infinite;stroke:var(--accent)}
+@keyframes vib{0%{transform:translateY(-1.2px)}50%{transform:translateY(1.2px)}100%{transform:translateY(-1.2px)}}
+figure.montage{margin:4px 0 14px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--plotbg)}
+#montage{width:100%;height:auto;display:block}
+.chain .blk{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 12px;font-weight:600;text-align:center;min-width:92px}
+.chain .arr{color:var(--muted);font-size:20px}
+table.roles{width:100%;border-collapse:collapse}
+table.roles td{padding:5px 4px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.roles td:first-child{font-weight:600;width:120px}
+table.roles select{width:100%}
+table.cordes{width:100%;border-collapse:collapse;font-size:14px}
+table.cordes th{font-size:12px;color:var(--muted);font-weight:600;padding:4px 3px;border-bottom:1px solid var(--line)}
+table.cordes td{padding:4px 3px;border-bottom:1px solid var(--line);text-align:center}
+table.cordes td:first-child{font-weight:600;white-space:nowrap}
+table.cordes input,table.cordes select{width:100%;min-width:0;padding:4px 5px}
+table.cordes td.st{width:22px;font-weight:700}
+table.cordes td:nth-child(2),table.cordes td:nth-child(3){width:19%}
+table.cordes td:nth-child(5){width:68px}
+table.cordes tr.cur td:first-child{color:var(--accent)}
+#msg1 div{margin:2px 0}
+.ans{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center}
+.ans label{font-size:14px}
+table.notes{border-collapse:collapse;font-size:13px;width:100%}
+table.notes th,table.notes td{border:1px solid var(--line);padding:4px 6px;text-align:right;white-space:nowrap}
+table.notes th{background:var(--bg);text-align:center}
+table.notes td:first-child{text-align:left;font-style:italic;background:var(--bg)}
+table.notes tr:hover td{background:var(--okbg)}
+.tablewrap{overflow-x:auto}
+#spec{width:100%;height:240px;display:block;border:1px solid var(--line);border-radius:8px;background:var(--plotbg)}
+.listen{display:flex;flex-wrap:wrap;gap:8px}
+
+.savebar{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;font-size:14px}
+.savebar input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;width:230px}
+.savebar button{padding:5px 10px;font-size:14px}
+#saveState{font-size:12px;color:var(--muted)}
+@media print{nav,.savebar button,.tools,button,#saveState{display:none!important}.page{display:block!important}section{break-inside:avoid}}
+header .savebar{margin-top:10px}
+</style>
+</head>
+<body>
+<header>
+  <div class="t"><h1>Caractéristiques d'un son</h1><span>Activité expérimentale n°08 · simulation LatisPro</span></div>
+  <div class="savebar">
+    <label for="eleve">Nom(s) :</label><input id="eleve" placeholder="Noms, prénoms, classe" autocomplete="off">
+    <button id="saveFile" title="Télécharger un fichier contenant toutes les valeurs saisies">💾 Enregistrer</button>
+    <button id="openFile" title="Recharger un fichier enregistré">📂 Ouvrir</button>
+    <button id="resetAll" title="Effacer toutes les valeurs saisies">🗑 Tout effacer</button>
+    <input type="file" id="fileIn" accept=".json,application/json" hidden>
+    <span id="saveState"></span>
+  </div>
+  <nav>
+    <button data-p="p1" class="on">I. Son d'une corde de guitare</button>
+    <button data-p="p2">II. Hauteur et timbre</button>
+    <button data-p="p3">Annexe : fréquences des notes</button>
+  </nav>
+</header>
+
+<!-- ================= PARTIE I ================= -->
+<div class="page on" id="p1">
+<div class="grid">
+<div class="col">
+  <section>
+    <h2>Le montage</h2>
+    <figure class="montage">
+<svg id="montage" viewBox="0 0 900 250" role="img" aria-label="Schéma du montage : guitare, micro, amplificateur, interface d'acquisition, ordinateur" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+  <!-- câbles -->
+  <g fill="none" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round">
+    <path d="M85 196 L85 212 Q85 220 93 220 L300 220 Q312 220 312 208 L312 175 L330 175"/>
+    <path d="M460 175 L520 175"/>
+    <path d="M650 160 Q668 160 672 172 Q678 186 700 184"/>
+  </g>
+  <!-- guitare -->
+  <g transform="translate(10,15) scale(.32)">
+    <path d="M30 150 C30 60 80 15 140 15 C200 15 220 55 255 55 C290 55 310 40 365 40 C420 40 440 90 440 150 C440 210 420 260 365 260 C310 260 290 245 255 245 C220 245 200 285 140 285 C80 285 30 240 30 150Z" fill="var(--wood)" stroke="var(--wood2)" stroke-width="7"/>
+    <circle cx="340" cy="150" r="42" fill="#2b1a0c"/>
+    <rect x="148" y="116" width="26" height="68" rx="4" fill="#3b2a12"/>
+    <path d="M432 130 L722 133 L722 167 L432 170Z" fill="var(--neck)"/>
+    <path d="M724 131 L800 122 Q808 150 800 178 L724 169Z" fill="var(--neck)"/>
+    <g stroke="var(--string)" stroke-width="2.5"><line x1="163" y1="128" x2="722" y2="136"/><line x1="163" y1="141" x2="722" y2="145"/><line x1="163" y1="159" x2="722" y2="155"/><line x1="163" y1="172" x2="722" y2="164"/></g>
+  </g>
+  <!-- ondes sonores -->
+  <g fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round">
+    <path d="M76 114 Q85 109 94 114"/><path d="M71 124 Q85 116 99 124"/><path d="M66 134 Q85 124 104 134"/>
+  </g>
+  <!-- micro -->
+  <g>
+    <rect x="80" y="152" width="10" height="44" rx="3" fill="#374151"/>
+    <ellipse cx="85" cy="150" rx="10" ry="12" fill="#4b5563" stroke="#1f2937" stroke-width="1.5"/>
+    <path d="M77 146 L93 146 M76 151 L94 151 M77 156 L93 156" stroke="#9ca3af" stroke-width="1"/>
+  </g>
+  <!-- amplificateur -->
+  <g>
+    <rect x="330" y="132" width="130" height="68" rx="8" fill="var(--panel)" stroke="var(--ink)" stroke-width="2"/>
+    <path d="M375 148 L375 184 L410 166 Z" fill="none" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/>
+    <circle cx="430" cy="152" r="7" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/><line x1="430" y1="152" x2="434" y2="147" stroke="var(--ink)" stroke-width="1.5"/>
+    <circle cx="430" cy="180" r="4" fill="#16a34a"/>
+    <circle cx="330" cy="175" r="4" fill="var(--ink)"/><circle cx="460" cy="175" r="4" fill="var(--ink)"/>
+  </g>
+  <!-- interface d'acquisition -->
+  <g>
+    <rect x="520" y="128" width="130" height="72" rx="8" fill="var(--panel)" stroke="var(--ink)" stroke-width="2"/>
+    <rect x="534" y="140" width="102" height="20" rx="3" fill="var(--bg)" stroke="var(--line)"/>
+    <text x="585" y="154" text-anchor="middle" font-size="11" font-weight="700" fill="var(--muted)">SYSAM</text>
+    <g font-size="10" fill="var(--muted)" text-anchor="middle"><text x="548" y="194">EA0</text><text x="575" y="194">EA1</text></g>
+    <circle cx="548" cy="178" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/><circle cx="575" cy="178" r="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
+    <circle cx="520" cy="175" r="4" fill="var(--ink)"/>
+    <path d="M520 175 Q534 175 543 178" fill="none" stroke="var(--ink)" stroke-width="2"/>
+  </g>
+  <!-- ordinateur -->
+  <g>
+    <rect x="712" y="70" width="150" height="100" rx="6" fill="#1f2937"/>
+    <rect x="720" y="78" width="134" height="84" rx="2" fill="#f8fafc"/>
+    <polyline fill="none" stroke="#7c3aed" stroke-width="1.8" points="724,128 732,122 738,108 744,128 750,138 756,126 762,120 768,108 774,128 780,138 786,126 792,120 798,108 804,128 810,138 816,126 822,120 828,108 834,128 840,138 846,126 850,121"/>
+    <line x1="724" y1="128" x2="850" y2="128" stroke="#cbd5e1" stroke-width="1"/>
+    <path d="M700 170 L874 170 L884 188 L690 188 Z" fill="#374151"/>
+  </g>
+  <!-- légendes -->
+  <g font-size="15" font-weight="700" fill="var(--ink)" text-anchor="middle">
+    <text x="200" y="104">Guitare</text>
+    <text x="104" y="178" text-anchor="start">Micro</text>
+    <text x="395" y="222">Amplificateur</text>
+    <text x="585" y="222">Interface d'acquisition</text>
+    <text x="787" y="210">Ordinateur</text>
+  </g>
+  <g font-size="12" fill="var(--muted)" text-anchor="middle">
+    <text x="585" y="238">(Sysam SP5)</text>
+    <text x="787" y="226">(logiciel LatisPro)</text>
+    <text x="200" y="120">(corde pincée)</text>
+    <text x="210" y="212" font-style="italic">câble</text>
+    <text x="490" y="166" font-style="italic">câble</text>
+    <text x="684" y="132" font-style="italic">câble USB</text>
+  </g>
+  </svg>
+    </figure>
+    <div class="gwrap">
+    <svg id="guitar" viewBox="0 0 900 335" aria-label="Guitare : clique sur une corde pour la pincer">
+      <path d="M30 150 C30 60 80 15 140 15 C200 15 220 55 255 55 C290 55 310 40 365 40 C420 40 440 90 440 150 C440 210 420 260 365 260 C310 260 290 245 255 245 C220 245 200 285 140 285 C80 285 30 240 30 150Z" fill="var(--wood)" stroke="var(--wood2)" stroke-width="3"/>
+      <circle cx="340" cy="150" r="42" fill="#2b1a0c"/>
+      <circle cx="340" cy="150" r="49" fill="none" stroke="var(--wood2)" stroke-width="3"/>
+      <path d="M432 130 L722 133 L722 167 L432 170Z" fill="var(--neck)"/>
+      <g id="frets"></g>
+      <rect x="719" y="132" width="5" height="36" fill="#e8dcc0"/>
+      <path d="M724 131 L800 122 Q808 150 800 178 L724 169Z" fill="var(--neck)"/>
+      <rect x="148" y="116" width="26" height="68" rx="4" fill="#3b2a12"/>
+      <text x="852" y="80" text-anchor="middle" font-size="13" fill="var(--muted)">corde n°</text>
+      <g id="strings"></g>
+      <g transform="translate(300,305)">
+        <circle r="11" fill="#374151"/><rect x="-4" y="9" width="8" height="20" fill="#374151"/>
+        <text x="18" y="5" font-size="13" fill="var(--muted)">micro</text>
+      </g>
+    </svg>
+    <div class="gside">
+      <button id="acq1" class="primary">▶ Acquisition<br><kbd>F10</kbd></button>
+      <span class="status" id="acqstatus1">Pince une corde puis lance l'acquisition.</span>
+    </div>
+    </div>
+    <p class="hint">Clique sur une corde pour la pincer (tu l'entends), puis lance l'acquisition rapidement : le son s'amortit !</p>
+  </section>
+
+  <section>
+    <h2>Acquisition (LatisPro simulé)</h2>
+    <div id="scope1"></div>
+    <p class="hint">Réticule : survole la courbe pour lire t et U. <b>Double-clic</b> = origine relative du réticule. Clic simple = repères A puis B (Δt = t<sub>B</sub> − t<sub>A</sub>). Molette = zoom horizontal, Maj + molette = zoom vertical.
+    Astuce : mesure la durée de plusieurs périodes, puis divise.</p>
+  </section>
+</div>
+
+<div class="col">
+  <section>
+    <h2>Rôle des éléments du montage</h2>
+    <table class="roles" id="roles"></table>
+    <div class="row" style="margin-top:8px"><span class="spacer"></span><button id="checkroles" class="primary">Vérifier</button></div>
+    <div class="msg" id="rolesmsg"></div>
+  </section>
+
+  <section>
+    <h2>Questions 1 à 3 : fréquence de chaque corde</h2>
+    <div class="def">Un signal est <b>périodique</b> s'il se répète identiquement à lui-même à intervalles de temps réguliers. La plus petite durée de répétition est la <b>période T</b> (en s).<br>
+      Fréquence : <b>f = 1 / T</b>, avec f en Hz (s⁻¹) et T en s.</div>
+    <p class="hint" style="margin:0 0 8px">Pour <b>chaque corde</b> : la pincer, faire une acquisition, mesurer la période T au réticule, calculer f = 1/T, puis trouver la note la plus proche dans l'annexe.</p>
+    <table class="cordes">
+      <thead><tr><th>Corde</th><th>T (ms)</th><th>f (Hz)</th><th>Note</th><th>Octave</th><th></th></tr></thead>
+      <tbody id="cordes"></tbody>
+    </table>
+    <div class="row" style="margin-top:8px"><span class="status" id="cordesScore"></span><span class="spacer"></span><button id="check1" class="primary">Vérifier</button></div>
+    <div class="msg" id="msg1"></div>
+    <h3>4. Que constate-t-on quand on passe de la corde n°6 (la plus grosse) à la corde n°1 (la plus fine) ?</h3>
+    <textarea id="q4" placeholder="Ta réponse…"></textarea>
+  </section>
+</div>
+</div>
+</div>
+
+<!-- ================= PARTIE II ================= -->
+<div class="page" id="p2">
+<div class="grid">
+<div class="col">
+  <section>
+    <h2>Fichier « sons musicaux »</h2>
+    <p class="hint" style="margin-top:0">Les deux diapasons jouent des <b>sons purs</b> de hauteurs différentes. La flûte et le saxo alto jouent des <b>sons complexes</b> de même hauteur.</p>
+    <div class="listen" style="margin:8px 0 14px">
+      <button data-play="d1">🔊 Diapason 1</button>
+      <button data-play="d2">🔊 Diapason 2</button>
+      <button data-play="fl">🔊 Flûte</button>
+      <button data-play="sx">🔊 Saxo alto</button>
+    </div>
+    <div id="wins"></div>
+    <div class="row">
+      <span class="status">Les quatre fenêtres ont la même échelle de temps ; le zoom et le décalage agissent sur les quatre.</span>
+      <span class="spacer"></span>
+      <button id="newnote">🎲 Autre note pour la flûte et le saxo</button>
+    </div>
+  </section>
+</div>
+<div class="col">
+  <section>
+    <h2>Hauteur d'un son</h2>
+    <p style="margin-top:0">L'oreille humaine entend les sons de fréquence comprise entre <b>20 Hz et 20 kHz</b>. En dessous : infrasons ; au-dessus : ultrasons.</p>
+    <p>Plus un son est <b>aigu</b>, plus sa fréquence est élevée. Plus il est <b>grave</b>, plus sa fréquence est faible.</p>
+  </section>
+  <section>
+    <h2>Questions</h2>
+    <h3 style="margin-top:0">a. Son pur ou son complexe : comment les distinguer ?</h3>
+    <textarea id="qa" placeholder="Ta réponse…"></textarea>
+    <h3>b. À quelle particularité des courbes le timbre est-il lié ?</h3>
+    <textarea id="qb" placeholder="Ta réponse…"></textarea>
+    <h3>c. Période, fréquence et note jouée par la flûte</h3>
+    <div class="ans" id="ans2"></div>
+    <div class="row" style="margin-top:8px"><span class="spacer"></span><button id="check2" class="primary">Vérifier</button></div>
+    <div class="msg" id="msg2"></div>
+  </section>
+  <section>
+    <h2>Pour aller plus loin : le spectre</h2>
+    <div class="row">
+      <label for="specsel">Instrument :</label>
+      <select id="specsel"><option value="d1">Diapason 1</option><option value="d2">Diapason 2</option><option value="fl" selected>Flûte</option><option value="sx">Saxo alto</option></select>
+    </div>
+    <canvas id="spec" style="margin-top:8px"></canvas>
+    <p class="hint">Un son pur ne contient qu'une seule fréquence. Un son complexe est la somme d'un <b>fondamental</b> (fréquence f, qui fixe la hauteur) et d'<b>harmoniques</b> (2f, 3f, 4f…) dont les amplitudes relatives font le timbre.</p>
+  </section>
+</div>
+</div>
+</div>
+
+<!-- ================= ANNEXE ================= -->
+<div class="page" id="p3">
+  <section>
+    <h2>Fréquences des notes (en hertz) dans la gamme tempérée</h2>
+    <div class="tablewrap"><table class="notes" id="notetable"></table></div>
+    <p class="hint">Convention française : le la de référence (440 Hz) est le <b>la 3</b>. Chaque octave supplémentaire double la fréquence.</p>
+  </section>
+</div>
+
+<script>
+(() => {
+// ================= Utilitaires =================
+const fr = (x, k) => x.toFixed(k).replace('.', ',');
+const parse = s => { s = String(s ?? '').trim().replace(',', '.').replace(/\s/g, ''); return s === '' ? NaN : Number(s); };
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function niceStep(range, target) {
+  const raw = range / target, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+  return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p;
+}
+const decimals = step => Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+function gauss() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+
+// ================= Notes =================
+const NOTES = ['do', 'do♯ / ré♭', 'ré', 'ré♯ / mi♭', 'mi', 'fa', 'fa♯ / sol♭', 'sol', 'sol♯ / la♭', 'la', 'la♯ / si♭', 'si'];
+const OCTS = [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+const noteFreq = (k, o) => 440 * Math.pow(2, (k - 9) / 12 + (o - 3));
+function nearestNote(f) {
+  const n = Math.round(12 * Math.log2(f / 440)) + 9 + 36; // index depuis do 0
+  return { k: ((n % 12) + 12) % 12, o: Math.floor(n / 12) };
+}
+const noteName = (k, o) => `${NOTES[k]} ${o}`;
+(function buildTable() {
+  let h = '<tr><th>Note / octave</th>' + OCTS.map(o => `<th>${o}</th>`).join('') + '</tr>';
+  NOTES.forEach((n, k) => h += `<tr><td>${n}</td>` + OCTS.map(o => `<td>${fr(noteFreq(k, o), 2)}</td>`).join('') + '</tr>');
+  document.getElementById('notetable').innerHTML = h;
+})();
+
+// ================= Synthèse =================
+function harmSignal(f, harm, t) { let s = 0; for (let n = 0; n < harm.length; n++) if (harm[n].a) s += harm[n].a * Math.sin(2 * Math.PI * (n + 1) * f * t + harm[n].ph); return s; }
+function peakOf(f, harm) { let m = 0; for (let i = 0; i < 2000; i++) m = Math.max(m, Math.abs(harmSignal(f, harm, i / 2000 / f))); return m || 1; }
+function sample(f, harm, amp, noise, dt, n, t0 = 0, clip = Infinity) {
+  const k = amp / peakOf(f, harm), out = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    let v = k * harmSignal(f, harm, t0 + i * dt) + noise * gauss();
+    out[i] = Math.max(-clip, Math.min(clip, v));
+  }
+  return out;
+}
+
+// Audio
+let actx = null;
+function playHarm(f, harm, dur, kind) {
+  actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+  const sr = actx.sampleRate, n = Math.round(dur * sr), buf = actx.createBuffer(1, n, sr), d = buf.getChannelData(0);
+  const pk = peakOf(f, harm);
+  for (let i = 0; i < n; i++) {
+    const t = i / sr; let s = 0;
+    for (let h = 0; h < harm.length; h++) {
+      const fh = (h + 1) * f; if (fh > sr / 2.2 || !harm[h].a) continue;
+      const dec = kind === 'pluck' ? Math.exp(-t * (1.2 + 0.9 * h)) : 1;
+      s += harm[h].a * dec * Math.sin(2 * Math.PI * fh * t + harm[h].ph);
+    }
+    let env;
+    if (kind === 'pluck') env = Math.min(1, t / 0.003);
+    else env = Math.min(1, t / (kind === 'fork' ? 0.01 : 0.06)) * Math.min(1, (dur - t) / 0.15) * (kind === 'fork' ? Math.exp(-t * 0.6) : 1);
+    if (kind === 'wind') s += 0.02 * gauss() * pk;
+    d[i] = 0.32 * env * s / pk;
+  }
+  const src = actx.createBufferSource(); src.buffer = buf; src.connect(actx.destination); src.start();
+}
+
+// ================= Oscilloscope générique =================
+class Scope {
+  constructor(host, o) {
+    this.o = Object.assign({ height: 340, ymin: -1, ymax: 1, yunit: 'V', ylabel: 'U', color: '--c1', tmax: 0.1, view: [0, 0.04], empty: 'Lance une acquisition', toolbar: true }, o);
+    this.view = [...this.o.view]; this.y = [this.o.ymin, this.o.ymax]; this.marks = []; this.origin = null; this.cursor = null; this.data = null; this.dt = 1;
+    this.linked = [];
+    host.innerHTML = `${this.o.toolbar ? `<div class="tools"><span class="status">Zoom :</span><button data-a="zin" title="Zoom horizontal avant (molette)">↔ +</button><button data-a="zout" title="Zoom horizontal arrière (molette)">↔ −</button><button data-a="yin" title="Zoom vertical avant (Maj + molette)">↕ +</button><button data-a="yout" title="Zoom vertical arrière (Maj + molette)">↕ −</button><button data-a="reset">Vue initiale</button><span class="spacer"></span><button data-a="clr">Effacer les repères</button><button data-a="org" hidden>Supprimer l'origine</button></div>` : `<div class="tools"><span class="status">Zoom :</span><button data-a="yin" title="Zoom vertical avant (Maj + molette)">↕ +</button><button data-a="yout" title="Zoom vertical arrière (Maj + molette)">↕ −</button><span class="spacer"></span><button data-a="clr">Effacer les repères</button><button data-a="org" hidden>Supprimer l'origine</button></div>`}
+      <canvas class="scope" style="height:${this.o.height}px"></canvas><div class="readout" style="margin-top:6px"></div>`;
+    this.c = host.querySelector('canvas'); this.ctx = this.c.getContext('2d'); this.ro = host.querySelector('.readout');
+    this.M = { l: 56, r: 14, t: 12, b: 34 };
+    const A = a => host.querySelector(`[data-a=${a}]`);
+    if (this.o.toolbar) {
+      A('zin').onclick = () => this.zoom(0.6); A('zout').onclick = () => this.zoom(1 / 0.6);
+      A('reset').onclick = () => { this.setView(...this.o.view); [this, ...this.linked].forEach(s => s.resetY()); };
+    }
+    A('yin').onclick = () => this.zoomY(0.6); A('yout').onclick = () => this.zoomY(1 / 0.6);
+    A('clr').onclick = () => { this.marks = []; this.draw(); };
+    this.orgBtn = A('org'); this.orgBtn.onclick = () => { this.origin = null; this.orgBtn.hidden = true; this.draw(); };
+    let timer = null;
+    this.c.addEventListener('mousemove', e => { const p = this.xy(e); this.cursor = this.inPlot(p) ? p : null; this.draw(); });
+    this.c.addEventListener('mouseleave', () => { this.cursor = null; this.draw(); });
+    this.c.addEventListener('click', e => {
+      const p = this.xy(e); if (!this.inPlot(p) || !this.data || e.detail > 1) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => { const m = { t: this.xt(p.x), u: this.yu(p.y) }; this.marks = this.marks.length >= 2 ? [m] : [...this.marks, m]; this.draw(); }, 250);
+    });
+    this.c.addEventListener('dblclick', e => {
+      clearTimeout(timer); const p = this.xy(e); if (!this.inPlot(p)) return; e.preventDefault();
+      this.origin = { t: this.xt(p.x), u: this.yu(p.y) }; this.orgBtn.hidden = false; this.draw();
+    });
+    this.c.addEventListener('wheel', e => { const p = this.xy(e); if (!this.inPlot(p)) return; e.preventDefault(); const f = e.deltaY < 0 ? .8 : 1.25; if (e.shiftKey) this.zoomY(f); else this.zoom(f, this.xt(p.x)); }, { passive: false });
+    this.c.addEventListener('touchstart', e => { const p = this.xy(e.touches[0]); if (this.inPlot(p)) { this.cursor = p; this.draw(); } }, { passive: true });
+  }
+  xy(e) { const r = this.c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  inPlot(p) { const M = this.M; return p.x >= M.l && p.x <= this.W - M.r && p.y >= M.t && p.y <= this.H - M.b; }
+  tx(t) { const M = this.M; return M.l + (t - this.view[0]) / (this.view[1] - this.view[0]) * (this.W - M.l - M.r); }
+  xt(x) { const M = this.M; return this.view[0] + (x - M.l) / (this.W - M.l - M.r) * (this.view[1] - this.view[0]); }
+  uy(u) { const M = this.M; return M.t + (this.y[1] - u) / (this.y[1] - this.y[0]) * (this.H - M.t - M.b); }
+  yu(y) { const M = this.M; return this.y[1] - (y - M.t) / (this.H - M.t - M.b) * (this.y[1] - this.y[0]); }
+  zoomY(f) { const h0 = (this.o.ymax - this.o.ymin) / 2, h = Math.max(h0 / 50, Math.min(h0, (this.y[1] - this.y[0]) / 2 * f)); this.y = [-h, h]; this.draw(); }
+  resetY() { this.y = [this.o.ymin, this.o.ymax]; this.draw(); }
+  setData(d, dt) { this.data = d; this.dt = dt; this.marks = []; this.draw(); }
+  setView(a, b, fromLink) {
+    const span = Math.max(this.o.tmax / 200, Math.min(this.o.tmax, b - a));
+    a = Math.max(0, Math.min(this.o.tmax - span, a)); this.view = [a, a + span]; this.draw();
+    if (!fromLink) this.linked.forEach(s => s.setView(a, a + span, true));
+  }
+  zoom(f, cx) { const [a, b] = this.view; cx = cx ?? (a + b) / 2; this.setView(cx - (cx - a) * f, cx + (b - cx) * f); }
+  pan(k) { const s = this.view[1] - this.view[0]; this.setView(this.view[0] + s * k, this.view[1] + s * k); }
+  fmtU(u) { const r = this.y[1] - this.y[0]; return fr(u, r > 100 ? 0 : r > 10 ? 1 : 2); }
+  label(x, y) {
+    const t = this.xt(x), u = this.yu(y), un = this.o.yunit;
+    if (!this.origin) return `t = ${fr(t * 1e3, 3)} ms   U = ${this.fmtU(u)} ${un}`;
+    const dt = (t - this.origin.t) * 1e3, du = u - this.origin.u;
+    return `Δt = ${dt < 0 ? '−' : ''}${fr(Math.abs(dt), 3)} ms   ΔU = ${du < 0 ? '−' : ''}${this.fmtU(Math.abs(du))} ${un}`;
+  }
+  draw() {
+    const c = this.ctx, r = this.c.getBoundingClientRect(); if (!r.width) return;
+    const dpr = window.devicePixelRatio || 1;
+    this.c.width = Math.round(r.width * dpr); this.c.height = Math.round(r.height * dpr); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const W = this.W = r.width, H = this.H = r.height, M = this.M, [ta, tb] = this.view, o = this.o;
+    c.clearRect(0, 0, W, H); c.font = '12px system-ui,sans-serif';
+    const ts = niceStep((tb - ta) * 1e3, W > 600 ? 10 : 6) / 1e3;
+    c.strokeStyle = css('--grid'); c.lineWidth = 1; c.fillStyle = css('--axis');
+    c.textAlign = 'center'; c.textBaseline = 'top';
+    for (let t = Math.ceil(ta / ts - 1e-9) * ts; t <= tb + 1e-12; t += ts) {
+      const x = Math.round(this.tx(t)) + .5; c.beginPath(); c.moveTo(x, M.t); c.lineTo(x, H - M.b); c.stroke();
+      c.fillText(fr(t * 1e3, decimals(ts * 1e3)), x, H - M.b + 5);
+    }
+    const ys = niceStep(this.y[1] - this.y[0], H > 250 ? 8 : 4);
+    c.textAlign = 'right'; c.textBaseline = 'middle';
+    for (let u = Math.ceil(this.y[0] / ys - 1e-9) * ys; u <= this.y[1] + 1e-9; u += ys) {
+      const y = Math.round(this.uy(u)) + .5; c.beginPath(); c.moveTo(M.l, y); c.lineTo(W - M.r, y); c.stroke();
+      c.fillText(fr(u, decimals(ys)), M.l - 6, y);
+    }
+    c.strokeStyle = css('--axis');
+    c.beginPath(); c.moveTo(M.l, this.uy(0) + .5); c.lineTo(W - M.r, this.uy(0) + .5); c.stroke();
+    c.strokeRect(M.l + .5, M.t + .5, W - M.l - M.r, H - M.t - M.b);
+    c.textAlign = 'right'; c.textBaseline = 'bottom'; c.fillText('t (ms)', W - M.r, H - 1);
+    c.save(); c.translate(12, (M.t + H - M.b) / 2); c.rotate(-Math.PI / 2); c.textAlign = 'center'; c.fillText(`${o.ylabel} (${o.yunit})`, 0, 0); c.restore();
+    c.save(); c.beginPath(); c.rect(M.l, M.t, W - M.l - M.r, H - M.t - M.b); c.clip();
+    if (this.data) this.plot(css(o.color));
+    else { c.fillStyle = css('--muted'); c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = '15px system-ui,sans-serif'; c.fillText(o.empty, (M.l + W - M.r) / 2, (M.t + H - M.b) / 2); }
+    this.marks.forEach((m, k) => {
+      const x = this.tx(m.t); c.strokeStyle = css('--cursor'); c.lineWidth = 1.5;
+      c.beginPath(); c.moveTo(x, M.t); c.lineTo(x, H - M.b); c.stroke();
+      c.fillStyle = css('--cursor'); c.font = 'bold 13px system-ui,sans-serif'; c.textAlign = 'left'; c.textBaseline = 'top'; c.fillText(k ? 'B' : 'A', x + 4, M.t + 3);
+    });
+    if (this.marks.length === 2) {
+      const xa = this.tx(this.marks[0].t), xb = this.tx(this.marks[1].t), y = M.t + 36;
+      c.strokeStyle = css('--cursor'); c.lineWidth = 1.2; c.beginPath(); c.moveTo(xa, y); c.lineTo(xb, y); c.stroke();
+      c.fillStyle = css('--cursor'); c.textAlign = 'center'; c.textBaseline = 'bottom'; c.font = 'bold 12px system-ui,sans-serif';
+      c.fillText('Δt = ' + fr((this.marks[1].t - this.marks[0].t) * 1e3, 3) + ' ms', (xa + xb) / 2, y - 3);
+    }
+    if (this.origin) {
+      const ox = this.tx(this.origin.t), oy = this.uy(this.origin.u);
+      c.strokeStyle = css('--origin'); c.lineWidth = 1.3; c.setLineDash([2, 3]);
+      c.beginPath(); c.moveTo(ox, M.t); c.lineTo(ox, H - M.b); c.moveTo(M.l, oy); c.lineTo(W - M.r, oy); c.stroke(); c.setLineDash([]);
+      c.beginPath(); c.arc(ox, oy, 4, 0, 2 * Math.PI); c.fillStyle = css('--origin'); c.fill();
+      c.font = 'bold 13px system-ui,sans-serif'; c.textAlign = 'right'; c.textBaseline = 'top'; c.fillText('O', ox - 5, oy + 4);
+    }
+    if (this.cursor) {
+      const { x, y } = this.cursor;
+      c.strokeStyle = css('--cursor'); c.lineWidth = 1; c.setLineDash([5, 4]);
+      c.beginPath(); c.moveTo(x, M.t); c.lineTo(x, H - M.b); c.moveTo(M.l, y); c.lineTo(W - M.r, y); c.stroke(); c.setLineDash([]);
+      const lbl = this.label(x, y); c.font = '12px ui-monospace,monospace';
+      const w = c.measureText(lbl).width + 12, bx = Math.min(x + 10, W - M.r - w), by = Math.max(y - 26, M.t + 2);
+      c.fillStyle = css('--panel'); c.globalAlpha = .92; c.fillRect(bx, by, w, 20); c.globalAlpha = 1;
+      c.strokeStyle = css(this.origin ? '--origin' : '--cursor'); c.strokeRect(bx + .5, by + .5, w, 20);
+      c.fillStyle = css('--ink'); c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(lbl, bx + 6, by + 10);
+    }
+    c.restore();
+    this.readout();
+  }
+  plot(color) {
+    const c = this.ctx, d = this.data, dt = this.dt, M = this.M, N = d.length, [ta, tb] = this.view;
+    const i0 = Math.max(0, Math.floor(ta / dt) - 1), i1 = Math.min(N - 1, Math.ceil(tb / dt) + 1), cols = this.W - M.l - M.r;
+    c.strokeStyle = color; c.lineWidth = 1.4; c.beginPath();
+    if (i1 - i0 > 2 * cols) {
+      let first = true;
+      for (let px = 0; px < cols; px++) {
+        const a = Math.max(i0, Math.floor(this.xt(M.l + px) / dt)), b = Math.min(i1, Math.floor(this.xt(M.l + px + 1) / dt));
+        let mn = Infinity, mx = -Infinity; for (let i = a; i <= b; i++) { const v = d[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+        const x = M.l + px + .5; if (first) { c.moveTo(x, this.uy(mx)); first = false; } else c.lineTo(x, this.uy(mx)); c.lineTo(x, this.uy(mn));
+      }
+    } else for (let i = i0; i <= i1; i++) { const x = this.tx(i * dt), y = this.uy(d[i]); i === i0 ? c.moveTo(x, y) : c.lineTo(x, y); }
+    c.stroke();
+  }
+  readout() {
+    const p = [];
+    if (this.origin) p.push(`<span class="orig">Origine O : t = ${fr(this.origin.t * 1e3, 3)} ms</span>`);
+    if (this.cursor) p.push(`<span${this.origin ? ' class="orig"' : ''}>${this.label(this.cursor.x, this.cursor.y).replace(/   /, ' · ')}</span>`);
+    this.marks.forEach((m, k) => p.push(`<span>${k ? 'B' : 'A'} : t = ${fr(m.t * 1e3, 3)} ms</span>`));
+    if (this.marks.length === 2) p.push(`<span class="dt">Δt = ${fr((this.marks[1].t - this.marks[0].t) * 1e3, 3)} ms</span>`);
+    this.ro.innerHTML = p.length ? p.join('') : '<span class="status">Réticule : survole la courbe</span>';
+  }
+}
+
+// ================= Formulaires de réponse =================
+function buildAnswer(host, prefix, noteLabel) {
+  host.innerHTML = `
+    <label for="${prefix}T">Période T (ms)</label><input class="cell" id="${prefix}T" inputmode="decimal">
+    <label for="${prefix}f">Fréquence f (Hz)</label><input class="cell" id="${prefix}f" inputmode="decimal">
+    <label>${noteLabel}</label>
+    <div class="row"><select id="${prefix}k"><option value="">note…</option>${NOTES.map((n, k) => `<option value="${k}">${n}</option>`).join('')}</select>
+    <select id="${prefix}o"><option value="">octave…</option>${OCTS.map(o => `<option>${o}</option>`).join('')}</select></div>`;
+}
+function setCls(el, c) { el.classList.remove('ok', 'bad', 'warn'); if (c) el.classList.add(c); }
+function checkFields($, fTrue) {
+  const T = parse($('T').value), f = parse($('f').value), k = $('k').value, o = $('o').value, notes = [];
+  const Ttrue = 1000 / fTrue;
+  if (!isNaN(T)) {
+    const e = Math.abs(T - Ttrue) / Ttrue;
+    if (e < 0.03) setCls($('T'), 'ok');
+    else if (e < 0.08) { setCls($('T'), 'warn'); notes.push('<span class="o">T est un peu imprécise : mesure la durée de plusieurs périodes et divise.</span>'); }
+    else if (Math.abs(T / Ttrue - Math.round(T / Ttrue)) < 0.06 && Math.round(T / Ttrue) >= 2) { setCls($('T'), 'bad'); notes.push(`<span class="r">Tu as mesuré ${Math.round(T / Ttrue)} périodes : pense à diviser par le nombre de périodes.</span>`); }
+    else { setCls($('T'), 'bad'); notes.push('<span class="r">Période incorrecte : repère deux points identiques consécutifs du signal (même valeur, même sens de variation).</span>'); }
+  } else setCls($('T'), null);
+  if (!isNaN(f) && T > 0) {
+    const fExp = 1000 / T, ratio = f / fExp;
+    if (Math.abs(ratio - 1) < 0.02) setCls($('f'), 'ok');
+    else { setCls($('f'), 'bad');
+      notes.push('<span class="r">' + (Math.abs(ratio * 1000 - 1) < 0.03 ? 'Erreur d\'un facteur 1000 : T doit être convertie en secondes avant de calculer f = 1/T.'
+        : Math.abs(ratio - 1000 / (T * T)) < 0.03 * ratio ? 'f = 1 / T et non T.' : 'Calcul de f = 1/T à revoir (T en s).') + '</span>'); }
+  } else setCls($('f'), null);
+  if (k !== '' && o !== '') {
+    const good = nearestNote(fTrue), mine = !isNaN(f) && f > 0 ? nearestNote(f) : null;
+    const isGood = +k === good.k && +o === good.o;
+    setCls($('k'), isGood ? 'ok' : 'bad'); setCls($('o'), isGood ? 'ok' : 'bad');
+    if (!isGood) {
+      if (mine && +k === mine.k && +o === mine.o) notes.push('<span class="o">La note correspond bien à ta fréquence, mais ta fréquence est fausse.</span>');
+      else if (+k === good.k) notes.push('<span class="r">Bonne note mais mauvaise octave : regarde bien la colonne du tableau.</span>');
+      else notes.push('<span class="r">Note incorrecte : cherche dans le tableau la fréquence la plus proche de ta valeur de f.</span>');
+    }
+  }
+  const empty = isNaN(T) && isNaN(f) && (k === '' || o === '');
+  return { notes, empty, allOk: !empty && !notes.length && !isNaN(T) && !isNaN(f) && k !== '' && o !== '' };
+}
+function checkAnswer(prefix, fTrue, msgEl) {
+  const r = checkFields(id => document.getElementById(prefix + id), fTrue);
+  msgEl.innerHTML = r.notes.length ? r.notes.join('<br>') : (r.empty ? '' : '<span class="g">✓ Bravo, tout est correct !</span>');
+}
+
+// ================= PARTIE I : guitare =================
+const STRINGS = [ // numéro, k, octave (convention française)
+  { n: 6, k: 4, o: 1, w: 3.4 }, { n: 5, k: 9, o: 1, w: 2.9 }, { n: 4, k: 2, o: 2, w: 2.4 },
+  { n: 3, k: 7, o: 2, w: 2.0 }, { n: 2, k: 11, o: 2, w: 1.5 }, { n: 1, k: 4, o: 3, w: 1.1 }];
+STRINGS.forEach(s => s.f = noteFreq(s.k, s.o));
+// Signal capté par le micro : spectre réaliste (dépend du point de pincement),
+// phases propres à chaque corde (réponse de la caisse) + légère variation d'un pincement à l'autre.
+// Les harmoniques aigus s'amortissent plus vite : plus on attend, plus le signal se simplifie.
+const hash = x => { const v = Math.sin(x) * 43758.5453; return v - Math.floor(v); };
+function micSignal(st, pluckPos, elapsed) {
+  const h = [];
+  for (let n = 1; n <= 10; n++) {
+    let a = Math.abs(Math.sin(n * Math.PI * pluckPos)) / Math.pow(n, 1.25) * (n === 1 ? 1.6 : 1);
+    a *= Math.exp(-elapsed * (0.15 + 0.35 * n));
+    const ph = 2 * Math.PI * hash(n * 12.9898 + st.n * 78.233) + (Math.random() - .5) * 0.6;
+    h.push({ a, ph });
+  }
+  return h;
+}
+function guitarHarm(pluckPos) {
+  const h = [];
+  for (let n = 1; n <= 14; n++) h.push({ a: Math.abs(Math.sin(n * Math.PI * pluckPos)) / Math.pow(n, 1.35) * (n === 1 ? 0.7 : 1), ph: Math.random() * 2 * Math.PI });
+  return h;
+}
+(function buildGuitar() {
+  // proportions d'une guitare classique : le chevalet est dans la partie basse de la caisse, la 12e case à la jonction manche/caisse
+  const XS = 163, XN = 722, L = XN - XS;
+  let fr_ = ''; for (let n = 1; n <= 12; n++) { const x = XN - L * (1 - Math.pow(2, -n / 12)); const h = 17 + 2 * (XN - x) / 290; fr_ += `<line x1="${x}" y1="${150 - h}" x2="${x}" y2="${150 + h}" stroke="#c9b48a" stroke-width="2"/>`; }
+  [3, 5, 7, 9].forEach(n => { const x = XN - L * (1 - Math.pow(2, -(n - .5) / 12)); fr_ += `<circle cx="${x}" cy="150" r="2.5" fill="#e8dcc0"/>`; });
+  document.getElementById('frets').innerHTML = fr_;
+  const g = document.getElementById('strings'); let s = '';
+  STRINGS.forEach((st, i) => {
+    const ys = 150 + (i - 2.5) * 9, yn = 150 + (i - 2.5) * 5.6, yl = 150 + (i - 2.5) * 23, xe = 790;
+    s += `<g class="str" data-i="${i}"><title>Corde n°${st.n}</title>
+      <text x="142" y="${ys + 3.5}" text-anchor="end" font-size="9" font-weight="700" fill="#3b2a12">${st.n}</text>
+      <polyline points="${XS},${ys} ${XN},${yn} ${xe},${yn}" fill="none" stroke="transparent" stroke-width="9" pointer-events="stroke"/>
+      <polyline class="s" points="${XS},${ys} ${XN},${yn} ${xe},${yn}" fill="none" stroke="var(--string)" stroke-width="${st.w * .8}"/>
+      <polyline points="${xe},${yn} ${xe + 18},${yn} ${838},${yl}" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 2"/>
+      <circle class="lbl" cx="852" cy="${yl}" r="11" fill="var(--panel)" stroke="var(--muted)"/>
+      <text x="852" y="${yl + 4.5}" text-anchor="middle" font-size="13" font-weight="700" fill="var(--ink)">${st.n}</text></g>`;
+  });
+  g.innerHTML = s;
+  g.querySelectorAll('.str').forEach(el => el.addEventListener('click', () => pluck(+el.dataset.i, el)));
+})();
+let lastPluck = null;
+function pluck(i, el) {
+  const pos = 0.12 + Math.random() * 0.1;
+  lastPluck = { s: STRINGS[i], time: performance.now(), A0: Math.exp(Math.log(2.5) + Math.random() * Math.log(4.8)), pos, harmAudio: guitarHarm(pos) };
+  playHarm(lastPluck.s.f, lastPluck.harmAudio, 2.5, 'pluck');
+  el.classList.add('vib'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('vib'), 1600);
+  document.getElementById('acqstatus1').textContent = 'Corde pincée : lance vite l\'acquisition !';
+}
+const scope1 = new Scope(document.getElementById('scope1'), { height: 360, ymin: -12, ymax: 12, yunit: 'V', color: '--guitar', tmax: 0.1, view: [0, 0.04], empty: 'Pince une corde puis lance l\'acquisition (F10)' });
+const DT1 = 20e-6, N1 = Math.round(0.1 / DT1) + 1;
+let fGuitar = null, acqString = null;
+let saver = null; const persist = () => saver && saver.save();
+function acquire1() {
+  const st = document.getElementById('acqstatus1');
+  if (!lastPluck) { scope1.setData(sample(100, [{ a: 0, ph: 0 }], 0, 0.03, DT1, N1), DT1); st.textContent = 'Aucun son : pince d\'abord une corde !'; fGuitar = null; return; }
+  const el = (performance.now() - lastPluck.time) / 1000, A = lastPluck.A0 * Math.exp(-el / 3);
+  scope1.setData(sample(lastPluck.s.f, micSignal(lastPluck.s, lastPluck.pos, el), A, 0.03, DT1, N1, Math.random(), 10), DT1);
+  fGuitar = lastPluck.s.f; acqString = STRINGS.indexOf(lastPluck.s); persist();
+  st.textContent = A > 10.5 ? '⚠ Signal saturé (écrêté à ±10 V) : pince la corde moins fort et recommence.'
+    : A < 0.6 ? '⚠ Signal trop faible : pince à nouveau la corde et lance l\'acquisition plus vite.'
+    : '';
+  st.textContent = `Corde n°${lastPluck.s.n}` + (st.textContent ? ' — ' + st.textContent : '');
+  document.querySelectorAll('#cordes tr').forEach(tr => tr.classList.toggle('cur', +tr.dataset.n === lastPluck.s.n));
+}
+document.getElementById('acq1').onclick = acquire1;
+document.addEventListener('keydown', e => { if (e.key === 'F10') { e.preventDefault(); if (document.getElementById('p1').classList.contains('on')) acquire1(); } });
+
+// Rôles
+const ROLES = [
+  ['Micro', 'Convertit le signal sonore en tension électrique.'],
+  ['Amplificateur', 'Augmente l\'amplitude de la tension électrique délivrée par le micro.'],
+  ['Interface', 'Convertit la tension électrique (signal analogique) en signal numérique.'],
+  ['Ordinateur', 'Enregistre, affiche et analyse le signal numérique (logiciel LatisPro).']];
+(function buildRoles() {
+  const opts = ROLES.map((r, i) => i).sort(() => Math.random() - .5);
+  document.getElementById('roles').innerHTML = ROLES.map((r, i) => `<tr><td>${r[0]}</td><td><select data-i="${i}"><option value="">— choisir —</option>${opts.map(j => `<option value="${j}">${ROLES[j][1]}</option>`).join('')}</select></td></tr>`).join('');
+})();
+document.getElementById('checkroles').onclick = () => {
+  let ok = 0, filled = 0;
+  document.querySelectorAll('#roles select').forEach(s => { if (s.value === '') { setCls(s, null); return; } filled++; const g = s.value === s.dataset.i; ok += g; setCls(s, g ? 'ok' : 'bad'); });
+  document.getElementById('rolesmsg').innerHTML = !filled ? '' : ok === 4 ? '<span class="g">✓ Parfait ! Le signal sonore devient une tension électrique, amplifiée, puis numérisée.</span>' : `<span class="r">${ok} / 4 correct${ok > 1 ? 's' : ''}.</span>`;
+};
+// Tableau des 6 cordes
+document.getElementById('cordes').innerHTML = STRINGS.map(st => `<tr data-n="${st.n}"><td>n°${st.n}</td>
+  <td><input class="cell" id="c${st.n}T" inputmode="decimal"></td><td><input class="cell" id="c${st.n}f" inputmode="decimal"></td>
+  <td><select id="c${st.n}k"><option value="">…</option>${NOTES.map((n, k) => `<option value="${k}">${n}</option>`).join('')}</select></td>
+  <td><select id="c${st.n}o"><option value="">…</option>${OCTS.map(o => `<option>${o}</option>`).join('')}</select></td><td class="st"></td></tr>`).join('');
+document.getElementById('check1').onclick = () => {
+  const m = document.getElementById('msg1'), out = []; let ok = 0;
+  STRINGS.forEach(st => {
+    const r = checkFields(id => document.getElementById('c' + st.n + id), st.f);
+    const cell = document.querySelector(`#cordes tr[data-n="${st.n}"] td.st`);
+    cell.innerHTML = r.empty ? '' : r.allOk ? '<span style="color:var(--ok)">✓</span>' : r.notes.length ? '<span style="color:var(--bad)">✗</span>' : '';
+    if (r.allOk) ok++;
+    if (r.notes.length) out.push(`<div><b>Corde n°${st.n} :</b> ${r.notes.join(' ')}</div>`);
+  });
+  document.getElementById('cordesScore').textContent = `${ok} / 6 cordes entièrement correctes`;
+  m.innerHTML = out.join('') || (ok === 6 ? '<span class="g">✓ Bravo, les six cordes sont correctes !</span>' : '');
+};
+
+// ================= PARTIE II : sons musicaux =================
+const DT2 = 10e-6, TMAX2 = 0.03, N2 = Math.round(TMAX2 / DT2) + 1;
+const INSTR = {
+  d1: { name: 'Diapason 1', unit: 'V', amp: 0.9, range: [-1.2, 1.2], color: '--c1', kind: 'fork', f: 440, harm: [{ a: 1, ph: 0 }] },
+  d2: { name: 'Diapason 2', unit: 'V', amp: 2.7, range: [-3, 3], color: '--c2', kind: 'fork', f: 320, harm: [{ a: 1, ph: 0 }] },
+  fl: { name: 'Flûte', unit: 'mV', amp: 720, range: [-800, 800], color: '--c3', kind: 'wind', f: 440,
+        harm: [{ a: 1, ph: 0 }, { a: .45, ph: 1.9 }, { a: .3, ph: 4.2 }, { a: .1, ph: .7 }, { a: .06, ph: 2.6 }, { a: .03, ph: 1.1 }] },
+  sx: { name: 'Saxo alto', unit: 'mV', amp: 450, range: [-500, 500], color: '--c4', kind: 'wind', f: 440,
+        harm: [1, .7, .85, .5, .62, .42, .35, .3, .22, .17, .12, .08].map((a, i) => ({ a, ph: [0, 2.1, 4.4, 1.3, 5.2, .6, 3.3, 2.7, 5.9, 1.8, 4.0, .9][i] })) } };
+const scopes2 = {};
+(function buildWins() {
+  const host = document.getElementById('wins');
+  Object.entries(INSTR).forEach(([id, ins], i) => {
+    const w = document.createElement('div'); w.className = 'win';
+    w.innerHTML = `<div class="wt"><b style="background:var(${ins.color})"></b>Fenêtre n°${i + 1} : ${ins.name} (${ins.unit})</div><div></div>`;
+    host.appendChild(w);
+    scopes2[id] = new Scope(w.lastElementChild, { height: 200, ymin: ins.range[0], ymax: ins.range[1], yunit: ins.unit, color: ins.color, tmax: TMAX2, view: [0, 0.015], toolbar: i === 0 });
+  });
+  const all = Object.values(scopes2); all.forEach(s => s.linked = all.filter(x => x !== s));
+})();
+function fillScopes2() {
+  Object.entries(INSTR).forEach(([id, ins]) => scopes2[id].setData(sample(ins.f, ins.harm, ins.amp, ins.amp * 0.012, DT2, N2, 0.37 / ins.f), DT2));
+}
+document.querySelectorAll('[data-play]').forEach(b => b.onclick = () => { const i = INSTR[b.dataset.play]; playHarm(i.f, i.harm, 1.6, i.kind); });
+document.getElementById('newnote').onclick = () => {
+  const cands = []; for (let o = 2; o <= 4; o++) for (let k = 0; k < 12; k++) { const f = noteFreq(k, o); if (f >= 230 && f <= 800 && Math.abs(f - INSTR.fl.f) > 1) cands.push(f); }
+  INSTR.fl.f = INSTR.sx.f = cands[Math.floor(Math.random() * cands.length)];
+  fillScopes2(); drawSpec(); persist();
+  ['f', 'T', 'k', 'o'].forEach(x => setCls(document.getElementById('fl' + x), null)); document.getElementById('msg2').innerHTML = '';
+};
+buildAnswer(document.getElementById('ans2'), 'fl', 'Note jouée par la flûte');
+document.getElementById('check2').onclick = () => checkAnswer('fl', INSTR.fl.f, document.getElementById('msg2'));
+
+// Spectre
+const spec = document.getElementById('spec');
+function drawSpec() {
+  const r = spec.getBoundingClientRect(); if (!r.width) return;
+  const dpr = window.devicePixelRatio || 1; spec.width = r.width * dpr; spec.height = r.height * dpr;
+  const c = spec.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const W = r.width, H = r.height, M = { l: 46, r: 14, t: 14, b: 36 }, ins = INSTR[document.getElementById('specsel').value];
+  const fmax = 6000, amax = Math.max(...ins.harm.map(h => h.a));
+  c.clearRect(0, 0, W, H); c.font = '12px system-ui,sans-serif'; c.strokeStyle = css('--grid'); c.fillStyle = css('--axis');
+  const X = f => M.l + f / fmax * (W - M.l - M.r), Y = a => H - M.b - a * (H - M.t - M.b);
+  c.textAlign = 'center'; c.textBaseline = 'top';
+  for (let f = 0; f <= fmax; f += 1000) { c.beginPath(); c.moveTo(X(f) + .5, M.t); c.lineTo(X(f) + .5, H - M.b); c.stroke(); c.fillText(f, X(f), H - M.b + 5); }
+  c.textAlign = 'right'; c.textBaseline = 'middle';
+  for (let a = 0; a <= 1.001; a += .25) { c.beginPath(); c.moveTo(M.l, Y(a) + .5); c.lineTo(W - M.r, Y(a) + .5); c.stroke(); c.fillText(fr(a, 2), M.l - 6, Y(a)); }
+  c.strokeStyle = css('--axis'); c.strokeRect(M.l + .5, M.t + .5, W - M.l - M.r, H - M.t - M.b);
+  c.textAlign = 'right'; c.textBaseline = 'bottom'; c.fillText('f (Hz)', W - M.r, H - 1);
+  c.save(); c.translate(12, (M.t + H - M.b) / 2); c.rotate(-Math.PI / 2); c.textAlign = 'center'; c.fillText('amplitude relative', 0, 0); c.restore();
+  c.fillStyle = css(ins.color);
+  ins.harm.forEach((h, n) => { const f = (n + 1) * ins.f; if (f > fmax || !h.a) return; const a = h.a / amax; c.fillRect(X(f) - 3, Y(a), 6, Y(0) - Y(a)); });
+}
+document.getElementById('specsel').onchange = drawSpec;
+
+// ================= Onglets & démarrage =================
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('on', p.id === b.dataset.p));
+  redrawAll();
+});
+function redrawAll() { scope1.draw(); Object.values(scopes2).forEach(s => s.draw()); drawSpec(); }
+
+// ================= Sauvegarde =================
+function setupSave(KEY, APP, collect, apply) {
+  const st = document.getElementById('saveState');
+  const hhmm = () => new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  let t = null, ready = false;
+  const save = () => {
+    if (!ready) return;
+    try { localStorage.setItem(KEY, JSON.stringify(collect())); st.textContent = '✓ Sauvegardé sur cet ordinateur (' + hhmm() + ')'; }
+    catch (e) { st.textContent = '⚠ Sauvegarde automatique indisponible : utilise « Enregistrer ».'; }
+  };
+  const later = () => { clearTimeout(t); t = setTimeout(save, 400); };
+  document.addEventListener('input', later); document.addEventListener('change', later);
+  let saved = null; try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+  if (saved && saved.app === APP) { try { apply(saved); st.textContent = 'Travail précédent restauré.'; } catch (e) { console.error(e); } }
+  ready = true;
+  const PICK = { id: 'simulations-physique', startIn: 'documents', types: [{ description: 'Travail enregistré (JSON)', accept: { 'application/json': ['.json'] } }] };
+  document.getElementById('saveFile').onclick = async () => {
+    const d = collect();
+    const name = (d.eleve || 'eleve').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'eleve';
+    const fname = `${APP}_${name}_${new Date().toISOString().slice(0, 10)}.json`;
+    const text = JSON.stringify(d, null, 2);
+    save();
+    if (window.showSaveFilePicker) {
+      // Chrome / Edge : fenêtre « Enregistrer sous » pour choisir le dossier sur le PC
+      try {
+        const h = await window.showSaveFilePicker(Object.assign({ suggestedName: fname }, PICK));
+        const w = await h.createWritable(); await w.write(text); await w.close();
+        st.textContent = '✓ Enregistré dans le fichier « ' + h.name + ' ».'; return;
+      } catch (e) {
+        if (e.name === 'AbortError') { st.textContent = 'Enregistrement annulé.'; return; }
+        console.warn(e); // sinon : téléchargement classique ci-dessous
+      }
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = fname;
+    document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 2000);
+    st.textContent = '✓ Fichier « ' + fname + ' » téléchargé. (Pour choisir le dossier : utiliser Chrome ou Edge, ou activer « Toujours demander où enregistrer les fichiers » dans les réglages du navigateur.)';
+  };
+  const loadFile = async f => {
+    try {
+      const d = JSON.parse(await f.text());
+      if (d.app !== APP) throw new Error('ce fichier ne correspond pas à cette activité.');
+      apply(d); save(); st.textContent = '✓ Fichier « ' + f.name + ' » chargé.';
+    } catch (e) { st.textContent = '⚠ Impossible d\'ouvrir le fichier : ' + e.message; }
+  };
+  const fi = document.getElementById('fileIn');
+  fi.onchange = () => { if (fi.files[0]) loadFile(fi.files[0]); fi.value = ''; };
+  document.getElementById('openFile').onclick = async () => {
+    if (window.showOpenFilePicker) {
+      try { const [h] = await window.showOpenFilePicker(PICK); return loadFile(await h.getFile()); }
+      catch (e) { if (e.name === 'AbortError') return; console.warn(e); }
+    }
+    fi.click();
+  };
+  document.getElementById('resetAll').onclick = () => {
+    if (!confirm('Effacer toutes les valeurs saisies ? (pense à « Enregistrer » avant si tu veux les garder)')) return;
+    ready = false; try { localStorage.removeItem(KEY); } catch (e) {} location.reload();
+  };
+  return { save: later };
+}
+const val = id => document.getElementById(id).value;
+const setVal = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = v; };
+
+const ansKeys = p => ({ T: val(p + 'T'), f: val(p + 'f'), note: val(p + 'k'), octave: val(p + 'o') });
+const setAns = (p, a) => { if (!a) return; setVal(p + 'T', a.T); setVal(p + 'f', a.f); setVal(p + 'k', a.note); setVal(p + 'o', a.octave); };
+saver = setupSave('ae08-caracteristiques-son', 'AE08', () => ({
+  app: 'AE08', version: 2, savedAt: new Date().toISOString(), eleve: val('eleve'),
+  roles: [...document.querySelectorAll('#roles select')].map(s => s.value),
+  cordes: Object.fromEntries(STRINGS.map(st => [st.n, ansKeys('c' + st.n)])), question4: val('q4'),
+  questionA: val('qa'), questionB: val('qb'),
+  flute: Object.assign(ansKeys('fl'), { frequenceSimulee: INSTR.fl.f })
+}), d => {
+  setVal('eleve', d.eleve);
+  if (Array.isArray(d.roles)) document.querySelectorAll('#roles select').forEach((s, i) => { if (d.roles[i] != null) s.value = d.roles[i]; });
+  if (d.cordes) STRINGS.forEach(st => setAns('c' + st.n, d.cordes[st.n]));
+  else if (d.guitare && d.guitare.corde != null) setAns('c' + d.guitare.corde, d.guitare); // ancien format
+  setVal('q4', d.question4); setVal('qa', d.questionA); setVal('qb', d.questionB); setAns('fl', d.flute);
+  if (d.flute && d.flute.frequenceSimulee) INSTR.fl.f = INSTR.sx.f = d.flute.frequenceSimulee;
+  fillScopes2(); drawSpec();
+});
+fillScopes2();
+window.addEventListener('resize', redrawAll);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redrawAll);
+redrawAll();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vitesse du son – Simulation AE06</title>
+<style>
+:root{
+  --bg:#eef1f6;--panel:#ffffff;--ink:#1b2333;--muted:#5d677a;--line:#d6dce6;
+  --accent:#1d4ed8;--accent-ink:#fff;--em:#d62828;--rec:#1d4ed8;
+  --plotbg:#ffffff;--grid:#e4e8ef;--axis:#4b5563;--cursor:#0f766e;--origin:#ea580c;
+  --ok:#15803d;--okbg:#dcfce7;--bad:#b91c1c;--badbg:#fee2e2;--warn:#a16207;--warnbg:#fef3c7;
+  --wood:#e9c98f;--wood2:#c79a52;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0e131b;--panel:#161d28;--ink:#e6e9ef;--muted:#9aa4b5;--line:#2a3442;
+  --accent:#3b82f6;--em:#f87171;--rec:#60a5fa;
+  --plotbg:#0b1018;--grid:#1d2633;--axis:#9aa4b5;--cursor:#2dd4bf;--origin:#fb923c;
+  --ok:#4ade80;--okbg:#0f2e1c;--bad:#f87171;--badbg:#3a1414;--warn:#fbbf24;--warnbg:#3a2c0a;
+  --wood:#8a6a36;--wood2:#5e4520;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline}
+header h1{font-size:19px;margin:0}
+header>span{color:var(--muted);font-size:14px}
+header .savebar{flex-basis:100%}
+main{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;padding:16px;max-width:1500px;margin:0 auto}
+@media (max-width:1050px){main{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+section h2{font-size:15px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+button{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:7px;padding:6px 11px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.spacer{flex:1}
+input[type=number],input.cell{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 7px;width:100%}
+input.dist{width:80px}
+button.primary kbd{background:transparent;color:inherit;border-color:rgba(255,255,255,.6)}
+kbd{font:12px ui-monospace,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--bg)}
+#bench{width:100%;height:auto;display:block;touch-action:none;user-select:none}
+#rx{cursor:grab}
+#rx.drag{cursor:grabbing}
+.scopewrap{position:relative}
+#scope{width:100%;height:380px;display:block;border:1px solid var(--line);border-radius:8px;cursor:crosshair;background:var(--plotbg)}
+#scope.panmode{cursor:grab;touch-action:none}
+#scope.panmode.dragging{cursor:grabbing}
+button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.legend{display:flex;gap:16px;font-size:13px;color:var(--muted)}
+.legend b{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:5px;border-radius:2px}
+.readout{font:14px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px 10px;display:flex;flex-wrap:wrap;gap:6px 22px}
+.readout .orig{color:var(--origin);font-weight:600}
+.readout .dt{font-weight:700;color:var(--cursor)}
+.hint{color:var(--muted);font-size:13px;margin:6px 0 0}
+.status{font-size:13px;color:var(--muted)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border-bottom:1px solid var(--line);padding:5px 4px;text-align:center}
+th{font-size:12px;color:var(--muted);font-weight:600}
+td.msg{text-align:left;font-size:12px;color:var(--muted);min-width:110px}
+input.cell.ok{border-color:var(--ok);background:var(--okbg)}
+input.cell.bad{border-color:var(--bad);background:var(--badbg)}
+input.cell.warn{border-color:var(--warn);background:var(--warnbg)}
+.msg .ok{color:var(--ok)} .msg .bad{color:var(--bad)} .msg .warn{color:var(--warn)}
+#fit{width:100%;height:260px;display:block;border:1px solid var(--line);border-radius:8px;background:var(--plotbg)}
+.box{background:var(--bg);border-radius:7px;padding:8px 10px;font-size:14px;margin-top:8px}
+details summary{cursor:pointer;font-weight:600}
+details ol{margin:8px 0 0;padding-left:20px}
+details li{margin:3px 0}
+input[type=range]{width:180px}
+.del{border:none;background:none;color:var(--muted);padding:2px 6px}
+
+.savebar{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;font-size:14px}
+.savebar input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;width:230px}
+.savebar button{padding:5px 10px;font-size:14px}
+#saveState{font-size:12px;color:var(--muted)}
+@media print{nav,.savebar button,.tools,button,#saveState{display:none!important}.page{display:block!important}section{break-inside:avoid}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Mesure de la vitesse d'un signal sonore</h1>
+  <span>Activité expérimentale n°06 · simulation du montage émetteur / récepteur d'ultrasons</span>
+  <span class="spacer"></span>
+  <div class="savebar">
+    <label for="eleve">Nom(s) :</label><input id="eleve" placeholder="Noms, prénoms, classe" autocomplete="off">
+    <button id="saveFile" title="Télécharger un fichier contenant toutes les valeurs saisies">💾 Enregistrer</button>
+    <button id="openFile" title="Recharger un fichier enregistré">📂 Ouvrir</button>
+    <button id="resetAll" title="Effacer toutes les valeurs saisies">🗑 Tout effacer</button>
+    <input type="file" id="fileIn" accept=".json,application/json" hidden>
+    <span id="saveState"></span>
+  </div>
+</header>
+
+<main>
+<div class="col">
+
+  <section>
+    <h2>Banc de mesure</h2>
+    <svg id="bench" viewBox="0 0 1030 150" aria-label="Banc avec émetteur et récepteur">
+      <g id="ruler"></g>
+      <g id="waves" opacity=".35"></g>
+      <g>
+        <rect x="8" y="38" width="52" height="44" rx="5" fill="var(--em)"/>
+        <rect x="56" y="46" width="6" height="28" rx="2" fill="#333"/>
+        <text x="34" y="65" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">E</text>
+        <text x="4" y="28" fill="var(--muted)" font-size="13">Émetteur (EA0)</text>
+      </g>
+      <g id="rx">
+        <rect x="-2" y="46" width="6" height="28" rx="2" fill="#333"/>
+        <rect x="2" y="38" width="52" height="44" rx="5" fill="var(--rec)"/>
+        <text x="28" y="65" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">R</text>
+        <text id="rxlabel" x="28" y="28" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="700">d = 20 cm</text>
+        <line x1="1" y1="82" x2="1" y2="98" stroke="var(--ink)" stroke-width="2"/>
+      </g>
+    </svg>
+    <div class="row" style="margin-top:8px">
+      <label>Distance émetteur–récepteur d :</label>
+      <button id="dm">−1</button>
+      <input id="dinput" class="dist" type="number" min="5" max="100" step="1" value="20"> cm
+      <button id="dp">+1</button>
+      <span class="spacer"></span>
+      <button id="acq" class="primary">▶ Acquisition <kbd>F10</kbd></button>
+    </div>
+    <p class="hint">Fais glisser le récepteur le long du réglet ou saisis la distance, puis lance une acquisition.</p>
+  </section>
+
+  <section>
+    <h2>Acquisition (LatisPro simulé)</h2>
+    <div class="row" style="margin-bottom:8px">
+      <div class="legend"><span><b style="background:var(--em)"></b>EA0 : émetteur</span><span><b style="background:var(--rec)"></b>EA1 : récepteur</span></div>
+      <span class="spacer"></span>
+      <span class="status">Zoom :</span>
+      <button id="zin" title="Zoom horizontal avant (molette)">↔ +</button>
+      <button id="zout" title="Zoom horizontal arrière (molette)">↔ −</button>
+      <button id="yin" title="Zoom vertical avant (Maj + molette)">↕ +</button>
+      <button id="yout" title="Zoom vertical arrière (Maj + molette)">↕ −</button>
+      <button id="zreset">Vue initiale</button>
+      <button id="pan" aria-pressed="false" title="Activer puis faire glisser le graphe vers la gauche ou la droite">✋ Déplacer</button>
+    </div>
+    <div class="scopewrap"><canvas id="scope"></canvas></div>
+    <div class="row" style="margin-top:8px">
+      <div class="readout" id="readout"><span>Réticule : —</span></div>
+      <span class="spacer"></span>
+      <button id="clearorig" hidden>Supprimer l'origine</button>
+      <button id="clearmk">Effacer les repères</button>
+    </div>
+    <p class="hint">Outil réticule : survole la courbe pour lire t et U. Clique une 1<sup>re</sup> fois pour poser le repère A (début de la salve émise), une 2<sup>e</sup> fois pour le repère B (début du signal reçu) : le retard Δt s'affiche. <b>Double-clic</b> : fixe une origine relative du réticule (les coordonnées sont alors lues par rapport à ce point). Molette = zoom horizontal, Maj + molette = zoom vertical. Bouton <b>✋ Déplacer</b> : faire glisser le graphe pour se déplacer en abscisses (cliquer à nouveau dessus pour revenir au réticule).</p>
+    <p class="status" id="acqstatus">Aucune acquisition pour l'instant.</p>
+  </section>
+
+  <section>
+    <details>
+      <summary>Rappel du travail à effectuer</summary>
+      <ol>
+        <li>Placer le récepteur à d = 20 cm et lancer une acquisition.</li>
+        <li>À l'aide du réticule, mesurer le retard Δt.</li>
+        <li>Calculer v = d / Δt, en m/s puis en km/h. Attention : ms (milliseconde) ≠ m·s⁻¹ (mètre par seconde) !</li>
+        <li>Recommencer pour d = 30, 40, 50 et 60 cm.</li>
+        <li>La valeur de v dépend-elle de d ?</li>
+        <li>Calculer v<sub>moy</sub> et la comparer à la valeur de référence.</li>
+        <li>Pour aller plus loin : modifier la température de l'air. La vitesse du son change-t-elle ?</li>
+      </ol>
+    </details>
+  </section>
+</div>
+
+<div class="col">
+  <section>
+    <h2>Tableau de mesures</h2>
+    <table>
+      <thead><tr><th>d (cm)</th><th>Δt (ms)</th><th>v (m/s)</th><th>v (km/h)</th><th>Bilan</th><th></th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="row" style="margin-top:10px">
+      <button id="addrow">+ Ajouter une ligne</button>
+      <span class="spacer"></span>
+      <button id="check" class="primary">Vérifier mes résultats</button>
+    </div>
+    <div class="box">
+      <div class="row">
+        <label for="vmoy">v<sub>moy</sub> (m/s) :</label>
+        <input id="vmoy" class="cell" style="width:110px" inputmode="decimal">
+        <button id="checkmoy">Vérifier</button>
+      </div>
+      <div id="moymsg" class="status" style="margin-top:4px"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Graphique d = f(Δt)</h2>
+    <canvas id="fit"></canvas>
+    <p class="status" id="fitmsg">Remplis Δt dans le tableau pour voir les points.</p>
+  </section>
+
+  <section>
+    <h2>Conditions expérimentales</h2>
+    <div class="row">
+      <label for="temp">Température de l'air :</label>
+      <input id="temp" type="range" min="-10" max="40" step="1" value="20">
+      <b id="tempv">20 °C</b>
+    </div>
+    <p class="hint">Change la température, puis refais une acquisition à la même distance : le retard est-il le même ?</p>
+    <div class="row" style="margin-top:8px">
+      <button id="reveal">Afficher la valeur de référence</button>
+    </div>
+    <div id="refbox" class="box" hidden></div>
+  </section>
+</div>
+</main>
+
+<script>
+(() => {
+// ---------- Physique ----------
+const F = 40000;          // fréquence des ultrasons (Hz)
+const T0 = 0.2e-3;        // début de la salve émise (s)
+const TB = 0.5e-3;        // durée de la salve (s) : 20 périodes
+const TAU_UP = 0.12e-3, TAU_DOWN = 0.16e-3;
+const TMAX = 6e-3, DT = 1e-6;
+const N = Math.round(TMAX / DT) + 1;
+const vSon = T => 331.3 * Math.sqrt(1 + T / 273.15);
+
+const state = { d: 20, T: 20, acq: null, view: [0, 5e-3], marks: [], cursor: null, origin: null };
+
+function gauss() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+
+function acquire() {
+  const d = state.d / 100, v = vSon(state.T), delay = d / v;
+  const A = Math.min(4.5, 0.65 / Math.max(d, 0.03));
+  const em = new Float32Array(N), rec = new Float32Array(N);
+  const w = 2 * Math.PI * F;
+  for (let i = 0; i < N; i++) {
+    const t = i * DT;
+    let e = 0;
+    if (t >= T0 && t <= T0 + TB) e = 5 * Math.sin(w * (t - T0));
+    em[i] = e + 0.015 * gauss();
+    const tau = t - T0 - delay;
+    let r = 0;
+    if (tau > 0) {
+      const env = tau < TB ? A * (1 - Math.exp(-tau / TAU_UP))
+                           : A * (1 - Math.exp(-TB / TAU_UP)) * Math.exp(-(tau - TB) / TAU_DOWN);
+      r = env * Math.sin(w * tau);
+    }
+    rec[i] = r + 0.04 * gauss();
+  }
+  state.acq = { d: state.d, T: state.T, em, rec };
+  state.marks = [];
+  document.getElementById('acqstatus').textContent =
+    `Dernière acquisition : d = ${state.d} cm, température ${state.T} °C. Durée d'acquisition 6 ms, 1 point toutes les 1 µs.`;
+  drawScope(); updateReadout(); pulseWaves();
+}
+
+// ---------- Utilitaires ----------
+const fr = (x, k) => x.toFixed(k).replace('.', ',');
+const parse = s => { if (s == null) return NaN; s = String(s).trim().replace(',', '.').replace(/\s/g, ''); return s === '' ? NaN : Number(s); };
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function niceStep(range, target) {
+  const raw = range / target, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+  return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p;
+}
+
+let saver = null; const persist = () => saver && saver.save();
+// ---------- Banc ----------
+const X0 = 62, PXCM = 9;
+const bench = document.getElementById('bench'), rx = document.getElementById('rx');
+(function buildRuler() {
+  const g = document.getElementById('ruler');
+  let s = `<rect x="${X0 - 4}" y="98" width="${100 * PXCM + 8}" height="34" rx="3" fill="var(--wood)" stroke="var(--wood2)"/>`;
+  for (let c = 0; c <= 100; c++) {
+    const x = X0 + c * PXCM, h = c % 10 === 0 ? 14 : c % 5 === 0 ? 10 : 6;
+    s += `<line x1="${x}" y1="98" x2="${x}" y2="${98 + h}" stroke="#3b2a12" stroke-width="${c % 10 ? 1 : 1.6}"/>`;
+    if (c % 10 === 0) s += `<text x="${x}" y="127" text-anchor="middle" font-size="11" fill="#3b2a12">${c}</text>`;
+  }
+  g.innerHTML = s;
+})();
+function setD(d) {
+  d = Math.max(5, Math.min(100, Math.round(d)));
+  state.d = d;
+  rx.setAttribute('transform', `translate(${X0 + d * PXCM},0)`);
+  document.getElementById('rxlabel').textContent = `d = ${d} cm`;
+  document.getElementById('dinput').value = d;
+  drawStaticWaves(); persist();
+}
+function drawStaticWaves() {
+  const g = document.getElementById('waves'), xr = X0 + state.d * PXCM;
+  let s = '';
+  for (let x = X0 + 14; x < xr - 6; x += 22) s += `<path d="M${x} 48 Q${x + 9} 60 ${x} 72" fill="none" stroke="var(--em)" stroke-width="2"/>`;
+  g.innerHTML = s;
+}
+function pulseWaves() {
+  const g = document.getElementById('waves');
+  g.animate([{ opacity: .9 }, { opacity: .35 }], { duration: 700 });
+}
+function svgX(evt) {
+  const p = bench.createSVGPoint(); p.x = evt.clientX; p.y = evt.clientY;
+  return p.matrixTransform(bench.getScreenCTM().inverse()).x;
+}
+let dragging = false;
+rx.addEventListener('pointerdown', e => { dragging = true; rx.classList.add('drag'); rx.setPointerCapture(e.pointerId); });
+rx.addEventListener('pointermove', e => { if (dragging) setD((svgX(e) - X0) / PXCM); });
+rx.addEventListener('pointerup', () => { dragging = false; rx.classList.remove('drag'); });
+document.getElementById('dm').onclick = () => setD(state.d - 1);
+document.getElementById('dp').onclick = () => setD(state.d + 1);
+document.getElementById('dinput').onchange = e => setD(parse(e.target.value) || 20);
+document.getElementById('acq').onclick = acquire;
+document.addEventListener('keydown', e => { if (e.key === 'F10') { e.preventDefault(); acquire(); } });
+
+// ---------- Oscillogramme ----------
+const scope = document.getElementById('scope'), sctx = scope.getContext('2d');
+const M = { l: 52, r: 14, t: 14, b: 38 }, YH0 = 6;
+let YH = YH0; // demi-étendue verticale (V)
+let SW = 0, SH = 0;
+function sizeCanvas(c) {
+  const r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr);
+  const ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return [r.width, r.height];
+}
+const tx = t => M.l + (t - state.view[0]) / (state.view[1] - state.view[0]) * (SW - M.l - M.r);
+const xt = x => state.view[0] + (x - M.l) / (SW - M.l - M.r) * (state.view[1] - state.view[0]);
+const uy = u => M.t + (YH - u) / (2 * YH) * (SH - M.t - M.b);
+const yu = y => YH - (y - M.t) / (SH - M.t - M.b) * (2 * YH);
+
+function drawScope() {
+  [SW, SH] = sizeCanvas(scope);
+  const c = sctx, [ta, tb] = state.view;
+  c.clearRect(0, 0, SW, SH);
+  c.font = '12px system-ui,sans-serif';
+  // grille
+  const ts = niceStep((tb - ta) * 1e3, 10) / 1e3;
+  c.strokeStyle = css('--grid'); c.lineWidth = 1; c.fillStyle = css('--axis');
+  c.textAlign = 'center'; c.textBaseline = 'top';
+  for (let t = Math.ceil(ta / ts) * ts; t <= tb + 1e-12; t += ts) {
+    const x = Math.round(tx(t)) + .5;
+    c.beginPath(); c.moveTo(x, M.t); c.lineTo(x, SH - M.b); c.stroke();
+    const dec = ts * 1e3 >= 1 ? 0 : ts * 1e3 >= .1 ? 1 : 2;
+    c.fillText(fr(t * 1e3, dec), x, SH - M.b + 5);
+  }
+  c.textAlign = 'right'; c.textBaseline = 'middle';
+  const ys = niceStep(2 * YH, 6), yd = Math.max(0, -Math.floor(Math.log10(ys) + 1e-9));
+  for (let u = Math.ceil(-YH / ys - 1e-9) * ys; u <= YH + 1e-9; u += ys) {
+    const y = Math.round(uy(u)) + .5;
+    c.beginPath(); c.moveTo(M.l, y); c.lineTo(SW - M.r, y); c.stroke();
+    c.fillText(fr(u, yd), M.l - 6, y);
+  }
+  c.strokeStyle = css('--axis');
+  c.beginPath(); c.moveTo(M.l, uy(0) + .5); c.lineTo(SW - M.r, uy(0) + .5); c.stroke();
+  c.strokeRect(M.l + .5, M.t + .5, SW - M.l - M.r, SH - M.t - M.b);
+  c.textAlign = 'center'; c.textBaseline = 'bottom';
+  c.fillText('t (ms)', (M.l + SW - M.r) / 2, SH - 2);
+  c.save(); c.translate(13, (M.t + SH - M.b) / 2); c.rotate(-Math.PI / 2); c.fillText('U (V)', 0, 0); c.restore();
+
+  c.save(); c.beginPath(); c.rect(M.l, M.t, SW - M.l - M.r, SH - M.t - M.b); c.clip();
+  if (state.acq) {
+    plot(state.acq.em, css('--em'));
+    plot(state.acq.rec, css('--rec'));
+  } else {
+    c.fillStyle = css('--muted'); c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = '15px system-ui,sans-serif';
+    c.fillText('Lance une acquisition (bouton ou touche F10)', (M.l + SW - M.r) / 2, (M.t + SH - M.b) / 2);
+  }
+  // repères
+  state.marks.forEach((m, k) => {
+    const x = tx(m.t);
+    c.strokeStyle = css('--cursor'); c.lineWidth = 1.5; c.setLineDash([]);
+    c.beginPath(); c.moveTo(x, M.t); c.lineTo(x, SH - M.b); c.stroke();
+    c.fillStyle = css('--cursor'); c.font = 'bold 13px system-ui,sans-serif'; c.textAlign = 'left'; c.textBaseline = 'top';
+    c.fillText(k ? 'B' : 'A', x + 4, M.t + 4);
+  });
+  if (state.marks.length === 2) {
+    const xa = tx(state.marks[0].t), xb = tx(state.marks[1].t), y = M.t + 44;
+    c.strokeStyle = css('--cursor'); c.lineWidth = 1.2;
+    c.beginPath(); c.moveTo(xa, y); c.lineTo(xb, y); c.stroke();
+    const dt = Math.abs(state.marks[1].t - state.marks[0].t) * 1e3;
+    c.fillStyle = css('--cursor'); c.textAlign = 'center'; c.textBaseline = 'bottom';
+    c.fillText('Δt = ' + fr(dt, 3) + ' ms', (xa + xb) / 2, y - 3);
+  }
+  // origine relative
+  if (state.origin) {
+    const ox = tx(state.origin.t), oy = uy(state.origin.u);
+    c.strokeStyle = css('--origin'); c.lineWidth = 1.3; c.setLineDash([2, 3]);
+    c.beginPath(); c.moveTo(ox, M.t); c.lineTo(ox, SH - M.b); c.moveTo(M.l, oy); c.lineTo(SW - M.r, oy); c.stroke();
+    c.setLineDash([]);
+    c.beginPath(); c.arc(ox, oy, 4, 0, 2 * Math.PI); c.fillStyle = css('--origin'); c.fill();
+    c.font = 'bold 13px system-ui,sans-serif'; c.textAlign = 'right'; c.textBaseline = 'top';
+    c.fillText('O', ox - 5, oy + 4);
+  }
+  // réticule
+  if (state.cursor) {
+    const { x, y } = state.cursor;
+    c.strokeStyle = css('--cursor'); c.lineWidth = 1; c.setLineDash([5, 4]);
+    c.beginPath(); c.moveTo(x, M.t); c.lineTo(x, SH - M.b); c.moveTo(M.l, y); c.lineTo(SW - M.r, y); c.stroke();
+    c.setLineDash([]);
+    const lbl = cursorLabel(x, y);
+    c.font = '12px ui-monospace,monospace';
+    const w = c.measureText(lbl).width + 12, bx = Math.min(x + 10, SW - M.r - w), by = Math.max(y - 26, M.t + 2);
+    c.fillStyle = css('--panel'); c.globalAlpha = .92; c.fillRect(bx, by, w, 20); c.globalAlpha = 1;
+    c.strokeStyle = css(state.origin ? '--origin' : '--cursor'); c.strokeRect(bx + .5, by + .5, w, 20);
+    c.fillStyle = css('--ink'); c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(lbl, bx + 6, by + 10);
+  }
+  c.restore();
+}
+function plot(arr, color) {
+  const c = sctx, [ta, tb] = state.view;
+  const i0 = Math.max(0, Math.floor(ta / DT) - 1), i1 = Math.min(N - 1, Math.ceil(tb / DT) + 1);
+  const cols = SW - M.l - M.r;
+  c.strokeStyle = color; c.lineWidth = 1.3; c.beginPath();
+  if (i1 - i0 > 2 * cols) {
+    let first = true;
+    for (let px = 0; px < cols; px++) {
+      const a = Math.max(i0, Math.floor(xt(M.l + px) / DT)), b = Math.min(i1, Math.floor(xt(M.l + px + 1) / DT));
+      let mn = Infinity, mx = -Infinity;
+      for (let i = a; i <= b; i++) { const v = arr[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+      const x = M.l + px + .5;
+      if (first) { c.moveTo(x, uy(mx)); first = false; } else c.lineTo(x, uy(mx));
+      c.lineTo(x, uy(mn));
+    }
+  } else {
+    for (let i = i0; i <= i1; i++) { const x = tx(i * DT), y = uy(arr[i]); i === i0 ? c.moveTo(x, y) : c.lineTo(x, y); }
+  }
+  c.stroke();
+}
+function setView(a, b) {
+  let span = Math.max(0.1e-3, Math.min(TMAX, b - a));
+  a = Math.max(0, Math.min(TMAX - span, a));
+  state.view = [a, a + span]; drawScope();
+}
+function zoom(f, center) {
+  const [a, b] = state.view, cx = center ?? (a + b) / 2;
+  setView(cx - (cx - a) * f, cx + (b - cx) * f);
+}
+document.getElementById('zin').onclick = () => zoom(0.6);
+document.getElementById('zout').onclick = () => zoom(1 / 0.6);
+const zoomY = f => { YH = Math.max(YH0 / 50, Math.min(YH0, YH * f)); drawScope(); };
+document.getElementById('yin').onclick = () => zoomY(0.6);
+document.getElementById('yout').onclick = () => zoomY(1 / 0.6);
+document.getElementById('zreset').onclick = () => { YH = YH0; setView(0, 5e-3); };
+document.getElementById('clearmk').onclick = () => { state.marks = []; drawScope(); updateReadout(); };
+
+function inPlot(x, y) { return x >= M.l && x <= SW - M.r && y >= M.t && y <= SH - M.b; }
+function localXY(e) { const r = scope.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+// Mode « Déplacer » : glisser le graphe pour se déplacer en abscisses
+let panMode = false, drag = null;
+const panBtn = document.getElementById('pan');
+panBtn.onclick = () => {
+  panMode = !panMode; panBtn.setAttribute('aria-pressed', panMode);
+  scope.classList.toggle('panmode', panMode); state.cursor = null; drawScope(); updateReadout();
+};
+scope.addEventListener('pointerdown', e => {
+  if (!panMode) return;
+  drag = { x: e.clientX, view: [...state.view] }; scope.setPointerCapture(e.pointerId); scope.classList.add('dragging');
+});
+scope.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const dt = (e.clientX - drag.x) / (SW - M.l - M.r) * (drag.view[1] - drag.view[0]);
+  setView(drag.view[0] - dt, drag.view[1] - dt);
+});
+const endDrag = () => { drag = null; scope.classList.remove('dragging'); };
+scope.addEventListener('pointerup', endDrag); scope.addEventListener('pointercancel', endDrag);
+scope.addEventListener('mousemove', e => {
+  if (panMode) return;
+  const p = localXY(e); state.cursor = inPlot(p.x, p.y) ? p : null; drawScope(); updateReadout();
+});
+scope.addEventListener('mouseleave', () => { state.cursor = null; drawScope(); updateReadout(); });
+// Un clic simple est différé pour ne pas poser de repère lors d'un double-clic.
+let clickTimer = null;
+scope.addEventListener('click', e => {
+  const p = localXY(e); if (panMode || !inPlot(p.x, p.y) || !state.acq) return;
+  if (e.detail > 1) return;
+  clearTimeout(clickTimer);
+  clickTimer = setTimeout(() => {
+    const m = { t: xt(p.x), u: yu(p.y) };
+    state.marks = state.marks.length >= 2 ? [m] : [...state.marks, m];
+    drawScope(); updateReadout();
+  }, 250);
+});
+scope.addEventListener('dblclick', e => {
+  clearTimeout(clickTimer);
+  const p = localXY(e); if (panMode || !inPlot(p.x, p.y)) return;
+  e.preventDefault();
+  state.origin = { t: xt(p.x), u: yu(p.y) };
+  document.getElementById('clearorig').hidden = false;
+  drawScope(); updateReadout();
+});
+document.getElementById('clearorig').onclick = e => {
+  state.origin = null; e.target.hidden = true; drawScope(); updateReadout();
+};
+function cursorLabel(x, y) {
+  const t = xt(x), u = yu(y);
+  if (!state.origin) return `t = ${fr(t * 1e3, 3)} ms   U = ${fr(u, 2)} V`;
+  const dt = (t - state.origin.t) * 1e3, du = u - state.origin.u;
+  return `Δt = ${dt < 0 ? '−' : ''}${fr(Math.abs(dt), 3)} ms   ΔU = ${du < 0 ? '−' : ''}${fr(Math.abs(du), 2)} V`;
+}
+scope.addEventListener('wheel', e => {
+  const p = localXY(e); if (!inPlot(p.x, p.y)) return;
+  e.preventDefault(); const f = e.deltaY < 0 ? 0.8 : 1.25; if (e.shiftKey) zoomY(f); else zoom(f, xt(p.x));
+}, { passive: false });
+// tactile : un appui pose un repère
+scope.addEventListener('touchstart', e => {
+  const t = e.touches[0], p = localXY(t);
+  if (!panMode && inPlot(p.x, p.y)) { state.cursor = p; drawScope(); updateReadout(); }
+}, { passive: true });
+
+function updateReadout() {
+  const r = document.getElementById('readout'), parts = [];
+  if (state.origin) parts.push(`<span class="orig">Origine O : t = ${fr(state.origin.t * 1e3, 3)} ms · U = ${fr(state.origin.u, 2)} V</span>`);
+  if (state.cursor) parts.push(`<span${state.origin ? ' class="orig"' : ''}>${cursorLabel(state.cursor.x, state.cursor.y).replace(/   /, ' · ')}${state.origin ? ' (par rapport à O)' : ''}</span>`);
+  state.marks.forEach((m, k) => parts.push(`<span>${k ? 'B' : 'A'} : t = ${fr(m.t * 1e3, 3)} ms</span>`));
+  if (state.marks.length === 2) parts.push(`<span class="dt">Δt = ${fr(Math.abs(state.marks[1].t - state.marks[0].t) * 1e3, 3)} ms</span>`);
+  r.innerHTML = parts.length ? parts.join('') : '<span>Réticule : survole l\'oscillogramme</span>';
+}
+
+// ---------- Tableau ----------
+const tbody = document.getElementById('tbody');
+function addRow(d = '') {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input class="cell" data-k="d" inputmode="decimal" value="${d}" style="width:58px"></td>
+    <td><input class="cell" data-k="dt" inputmode="decimal"></td>
+    <td><input class="cell" data-k="v" inputmode="decimal"></td>
+    <td><input class="cell" data-k="kmh" inputmode="decimal"></td>
+    <td class="msg"></td><td><button class="del" title="Supprimer">✕</button></td>`;
+  tr.querySelector('.del').onclick = () => { tr.remove(); drawFit(); persist(); };
+  tr.querySelectorAll('input').forEach(i => i.addEventListener('input', () => { i.classList.remove('ok', 'bad', 'warn'); drawFit(); }));
+  tbody.appendChild(tr); persist();
+  return tr;
+}
+[20, 30, 40, 50, 60].forEach(addRow);
+document.getElementById('addrow').onclick = () => addRow();
+
+function rowData(tr) {
+  const o = {}; tr.querySelectorAll('input').forEach(i => o[i.dataset.k] = { el: i, val: parse(i.value) }); return o;
+}
+function unitHint(ratio) {
+  const tests = [[10, 'un facteur 10 : attention aux conversions cm → m et ms → s'], [0.1, 'un facteur 10 : attention aux conversions cm → m et ms → s'],
+    [1000, 'un facteur 1000 : as-tu converti les ms en s ?'], [0.001, 'un facteur 1000 : as-tu converti les ms en s ?'],
+    [100, 'un facteur 100 : as-tu converti les cm en m ?'], [0.01, 'un facteur 100 : as-tu converti les cm en m ?']];
+  for (const [r, msg] of tests) if (Math.abs(ratio / r - 1) < 0.05) return 'Erreur d\'' + msg;
+  return null;
+}
+function setCls(el, c) { el.classList.remove('ok', 'bad', 'warn'); if (c) el.classList.add(c); }
+document.getElementById('check').onclick = () => {
+  const v = vSon(state.T);
+  tbody.querySelectorAll('tr').forEach(tr => {
+    const o = rowData(tr), msg = tr.querySelector('.msg'), notes = [];
+    const d = o.d.val;
+    if (!(d > 0)) { msg.textContent = ''; return; }
+    // Δt
+    if (!isNaN(o.dt.val)) {
+      const exp = d / 100 / v * 1e3, err = Math.abs(o.dt.val - exp) / exp;
+      if (err < 0.06 || Math.abs(o.dt.val - exp) < 0.03) setCls(o.dt.el, 'ok');
+      else if (err < 0.15) { setCls(o.dt.el, 'warn'); notes.push('<span class="warn">Δt imprécis : vise bien le début de chaque salve.</span>'); }
+      else { setCls(o.dt.el, 'bad'); notes.push('<span class="bad">Δt incohérent avec d : refais la mesure.</span>'); }
+    }
+    // v (m/s) à partir du Δt de l'élève
+    if (!isNaN(o.v.val) && o.dt.val > 0) {
+      const exp = (d / 100) / (o.dt.val / 1000), ratio = o.v.val / exp;
+      if (Math.abs(ratio - 1) < 0.02) setCls(o.v.el, 'ok');
+      else { setCls(o.v.el, 'bad'); notes.push('<span class="bad">' + (unitHint(ratio) || 'Calcul de v = d/Δt à revoir.') + '</span>'); }
+    }
+    // km/h
+    if (!isNaN(o.kmh.val) && !isNaN(o.v.val)) {
+      const ratio = o.kmh.val / (o.v.val * 3.6);
+      if (Math.abs(ratio - 1) < 0.02) setCls(o.kmh.el, 'ok');
+      else {
+        setCls(o.kmh.el, 'bad');
+        notes.push('<span class="bad">' + (Math.abs(o.kmh.val / (o.v.val / 3.6) - 1) < 0.02
+          ? 'Pour passer de m/s à km/h, on multiplie par 3,6.' : 'Conversion en km/h à revoir (1 m/s = 3,6 km/h).') + '</span>');
+      }
+    }
+    msg.innerHTML = notes.length ? notes.join('<br>') : (tr.querySelector('.ok') ? '<span class="ok">✓ Correct</span>' : '');
+  });
+};
+document.getElementById('checkmoy').onclick = () => {
+  const vals = [...tbody.querySelectorAll('tr')].map(tr => rowData(tr).v.val).filter(x => x > 0);
+  const el = document.getElementById('vmoy'), m = document.getElementById('moymsg'), s = parse(el.value);
+  if (!vals.length) { m.textContent = 'Complète d\'abord la colonne v (m/s).'; return; }
+  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+  if (isNaN(s)) { m.textContent = 'Saisis ta valeur de vmoy.'; return; }
+  if (Math.abs(s / mean - 1) < 0.01) { setCls(el, 'ok'); m.innerHTML = `<span style="color:var(--ok)">✓ Moyenne correcte (${vals.length} valeurs).</span>`; }
+  else { setCls(el, 'bad'); m.innerHTML = `<span style="color:var(--bad)">Moyenne à revoir : additionne les ${vals.length} valeurs de v puis divise par ${vals.length}.</span>`; }
+};
+
+// ---------- Graphique d = f(Δt) ----------
+const fit = document.getElementById('fit'), fctx = fit.getContext('2d');
+function drawFit() {
+  const [W, H] = sizeCanvas(fit), c = fctx, m = { l: 50, r: 14, t: 14, b: 38 };
+  c.clearRect(0, 0, W, H);
+  const pts = [...tbody.querySelectorAll('tr')].map(rowData).filter(o => o.d.val > 0 && o.dt.val > 0)
+    .map(o => ({ x: o.dt.val, y: o.d.val / 100 }));
+  const xmax = Math.max(2, ...pts.map(p => p.x)) * 1.1, ymax = Math.max(0.7, ...pts.map(p => p.y)) * 1.1;
+  const X = x => m.l + x / xmax * (W - m.l - m.r), Y = y => H - m.b - y / ymax * (H - m.t - m.b);
+  c.font = '12px system-ui,sans-serif'; c.strokeStyle = css('--grid'); c.fillStyle = css('--axis');
+  const sx = niceStep(xmax, 6), sy = niceStep(ymax, 6);
+  c.textAlign = 'center'; c.textBaseline = 'top';
+  for (let x = 0; x <= xmax; x += sx) { c.beginPath(); c.moveTo(X(x) + .5, m.t); c.lineTo(X(x) + .5, H - m.b); c.stroke(); c.fillText(fr(x, sx < 1 ? 1 : 0), X(x), H - m.b + 5); }
+  c.textAlign = 'right'; c.textBaseline = 'middle';
+  for (let y = 0; y <= ymax; y += sy) { c.beginPath(); c.moveTo(m.l, Y(y) + .5); c.lineTo(W - m.r, Y(y) + .5); c.stroke(); c.fillText(fr(y, sy < .1 ? 2 : 1), m.l - 6, Y(y)); }
+  c.strokeStyle = css('--axis'); c.strokeRect(m.l + .5, m.t + .5, W - m.l - m.r, H - m.t - m.b);
+  c.textAlign = 'center'; c.textBaseline = 'bottom'; c.fillText('Δt (ms)', (m.l + W - m.r) / 2, H - 2);
+  c.save(); c.translate(13, (m.t + H - m.b) / 2); c.rotate(-Math.PI / 2); c.fillText('d (m)', 0, 0); c.restore();
+  const msg = document.getElementById('fitmsg');
+  if (pts.length >= 2) {
+    const k = pts.reduce((a, p) => a + p.x * p.y, 0) / pts.reduce((a, p) => a + p.x * p.x, 0); // m/ms
+    c.strokeStyle = css('--cursor'); c.lineWidth = 1.5; c.setLineDash([6, 4]);
+    c.beginPath(); c.moveTo(X(0), Y(0)); c.lineTo(X(xmax), Y(k * xmax)); c.stroke(); c.setLineDash([]);
+    msg.innerHTML = `Modélisation par une droite passant par l'origine : d = k × Δt avec k ≈ <b>${fr(k * 1000, 0)} m/s</b>. Que représente k ?`;
+  } else msg.textContent = 'Remplis au moins deux valeurs de Δt dans le tableau pour voir les points et la modélisation.';
+  c.fillStyle = css('--rec');
+  pts.forEach(p => { c.beginPath(); c.arc(X(p.x), Y(p.y), 4.5, 0, 2 * Math.PI); c.fill(); });
+}
+
+// ---------- Conditions ----------
+const temp = document.getElementById('temp');
+temp.oninput = () => {
+  state.T = +temp.value; document.getElementById('tempv').textContent = state.T + ' °C';
+  if (!document.getElementById('refbox').hidden) showRef();
+};
+function showRef() {
+  const v = vSon(state.T), box = document.getElementById('refbox');
+  box.hidden = false;
+  box.innerHTML = `Dans l'air à <b>${state.T} °C</b>, la vitesse du son vaut environ <b>${fr(v, 0)} m/s</b> (soit ${fr(v * 3.6, 0)} km/h).<br>
+    <span class="status">Relation approchée : v ≈ 331 × √(1 + θ / 273) avec θ en °C.</span>`;
+}
+document.getElementById('reveal').onclick = showRef;
+
+// ---------- Démarrage ----------
+setD(20);
+window.addEventListener('resize', () => { drawScope(); drawFit(); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { drawScope(); drawFit(); });
+
+// ================= Sauvegarde =================
+function setupSave(KEY, APP, collect, apply) {
+  const st = document.getElementById('saveState');
+  const hhmm = () => new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  let t = null, ready = false;
+  const save = () => {
+    if (!ready) return;
+    try { localStorage.setItem(KEY, JSON.stringify(collect())); st.textContent = '✓ Sauvegardé sur cet ordinateur (' + hhmm() + ')'; }
+    catch (e) { st.textContent = '⚠ Sauvegarde automatique indisponible : utilise « Enregistrer ».'; }
+  };
+  const later = () => { clearTimeout(t); t = setTimeout(save, 400); };
+  document.addEventListener('input', later); document.addEventListener('change', later);
+  let saved = null; try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+  if (saved && saved.app === APP) { try { apply(saved); st.textContent = 'Travail précédent restauré.'; } catch (e) { console.error(e); } }
+  ready = true;
+  const PICK = { id: 'simulations-physique', startIn: 'documents', types: [{ description: 'Travail enregistré (JSON)', accept: { 'application/json': ['.json'] } }] };
+  document.getElementById('saveFile').onclick = async () => {
+    const d = collect();
+    const name = (d.eleve || 'eleve').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'eleve';
+    const fname = `${APP}_${name}_${new Date().toISOString().slice(0, 10)}.json`;
+    const text = JSON.stringify(d, null, 2);
+    save();
+    if (window.showSaveFilePicker) {
+      // Chrome / Edge : fenêtre « Enregistrer sous » pour choisir le dossier sur le PC
+      try {
+        const h = await window.showSaveFilePicker(Object.assign({ suggestedName: fname }, PICK));
+        const w = await h.createWritable(); await w.write(text); await w.close();
+        st.textContent = '✓ Enregistré dans le fichier « ' + h.name + ' ».'; return;
+      } catch (e) {
+        if (e.name === 'AbortError') { st.textContent = 'Enregistrement annulé.'; return; }
+        console.warn(e); // sinon : téléchargement classique ci-dessous
+      }
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = fname;
+    document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 2000);
+    st.textContent = '✓ Fichier « ' + fname + ' » téléchargé. (Pour choisir le dossier : utiliser Chrome ou Edge, ou activer « Toujours demander où enregistrer les fichiers » dans les réglages du navigateur.)';
+  };
+  const loadFile = async f => {
+    try {
+      const d = JSON.parse(await f.text());
+      if (d.app !== APP) throw new Error('ce fichier ne correspond pas à cette activité.');
+      apply(d); save(); st.textContent = '✓ Fichier « ' + f.name + ' » chargé.';
+    } catch (e) { st.textContent = '⚠ Impossible d\'ouvrir le fichier : ' + e.message; }
+  };
+  const fi = document.getElementById('fileIn');
+  fi.onchange = () => { if (fi.files[0]) loadFile(fi.files[0]); fi.value = ''; };
+  document.getElementById('openFile').onclick = async () => {
+    if (window.showOpenFilePicker) {
+      try { const [h] = await window.showOpenFilePicker(PICK); return loadFile(await h.getFile()); }
+      catch (e) { if (e.name === 'AbortError') return; console.warn(e); }
+    }
+    fi.click();
+  };
+  document.getElementById('resetAll').onclick = () => {
+    if (!confirm('Effacer toutes les valeurs saisies ? (pense à « Enregistrer » avant si tu veux les garder)')) return;
+    ready = false; try { localStorage.removeItem(KEY); } catch (e) {} location.reload();
+  };
+  return { save: later };
+}
+const val = id => document.getElementById(id).value;
+const setVal = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = v; };
+
+saver = setupSave('ae06-vitesse-son', 'AE06', () => ({
+  app: 'AE06', version: 1, savedAt: new Date().toISOString(), eleve: val('eleve'),
+  d: state.d, temperature: state.T, vmoy: val('vmoy'),
+  mesures: [...tbody.querySelectorAll('tr')].map(tr => { const o = {}; tr.querySelectorAll('input').forEach(i => o[i.dataset.k] = i.value); return o; })
+}), d => {
+  setVal('eleve', d.eleve);
+  if (d.temperature != null) { temp.value = d.temperature; temp.oninput(); }
+  if (d.d) setD(d.d);
+  if (Array.isArray(d.mesures)) {
+    tbody.innerHTML = '';
+    d.mesures.forEach(m => { const tr = addRow(m.d ?? ''); tr.querySelectorAll('input').forEach(i => { if (m[i.dataset.k] != null) i.value = m[i.dataset.k]; }); });
+  }
+  setVal('vmoy', d.vmoy);
+  drawFit();
+});
+drawScope(); drawFit(); updateReadout();
+})();
+</script>
+</body>
+</html>

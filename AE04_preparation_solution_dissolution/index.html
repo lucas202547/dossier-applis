@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="app-id" content="AE04-dissolution" data-version="1.0">
+<title>Précision de la verrerie et dissolution</title>
+<style>
+  :root{
+    --ink:#1d2433; --muted:#5b6475; --line:#d5dae3; --paper:#ffffff; --bg:#eef1f6;
+    --accent:#1f5fbf; --accent-soft:#e6eefb; --warn:#b4480f; --warn-soft:#fdf0e6;
+    --ok:#1e7a45; --ok-soft:#e5f4ea; --model:#c2189b; --pt:#d0021b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif}
+  .toolbar{position:sticky;top:0;z-index:10;background:#1d2433;color:#fff;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 16px}
+  .toolbar .t{font-weight:600;margin-right:auto}
+  .toolbar button{font:inherit;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
+  .btn-save{background:#3b82f6;color:#fff;font-weight:600}
+  .btn-save:hover{background:#2563eb}
+  .btn-sec{background:#384156;color:#fff}
+  .btn-sec:hover{background:#4a5470}
+  #saveMsg{font-size:.9em;color:var(--ok);font-weight:600;align-self:center}
+  main{max-width:980px;margin:20px auto;padding:0 16px 60px}
+  .sheet{background:var(--paper);border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:28px 32px;margin-bottom:22px}
+  @media (max-width:640px){.sheet{padding:18px 16px}}
+  header.head{display:grid;grid-template-columns:1fr auto;border:2px solid var(--ink)}
+  header.head div{padding:6px 12px;font-weight:700;text-align:center}
+  header.head .theme{border-bottom:2px solid var(--ink);background:#e9ecf1;font-size:.9em;letter-spacing:.03em}
+  header.head .code{grid-row:1/3;grid-column:2;border-left:2px solid var(--ink);display:flex;align-items:center;font-size:1.6em}
+  header.head .title{font-size:1.15em}
+  .id-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:16px 0 0;padding-bottom:40px}
+  .id-row .save-box{position:relative}
+  .id-row .save-box .save-note{position:absolute;left:0;top:calc(100% + 4px);width:280px;line-height:1.3}
+  .id-row .save-note{font-size:.9em;color:var(--warn);font-style:italic}
+  .id-row .btn-save{font:inherit;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
+  .id-row label{display:flex;gap:8px;align-items:center;font-weight:600}
+  .goal{font-style:italic;color:var(--muted);margin:16px 0}
+  h2{font-size:1.15em;margin:0 0 12px;padding-bottom:6px;border-bottom:2px solid var(--accent);color:var(--accent);text-transform:uppercase;letter-spacing:.03em}
+  h3{font-size:1em;margin:18px 0 8px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px}
+  @media (max-width:640px){.cols{grid-template-columns:1fr}}
+  ul.mat{margin:4px 0;padding-left:20px}
+  .docs{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-top:14px}
+  @media (max-width:760px){.docs{grid-template-columns:1fr}}
+  .doc{border:1px solid var(--line);border-radius:10px;padding:14px}
+  .doc h4{margin:0 0 8px;font-size:.95em;text-decoration:underline}
+  .doc img{max-width:100%;height:auto}
+  .formula{display:inline-flex;align-items:center;gap:8px;font-size:1.15em;font-family:"Cambria Math","Times New Roman",serif;padding:6px 14px;background:var(--accent-soft);border-radius:8px}
+  .frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle}
+  .frac span:first-child{border-bottom:1.5px solid currentColor;padding:0 4px}
+  .frac span:last-child{padding:0 4px}
+  ol.proto{padding-left:22px;margin:6px 0}
+  ol.proto li{margin-bottom:4px}
+  .q{margin:16px 0}
+  .ov{text-decoration:overline}
+  .crit{font-size:.8em;font-weight:400;font-style:normal;color:var(--muted)}
+  #statsTable td{min-width:110px}
+  #statsTable td.best{background:var(--ok-soft);color:var(--ok);font-weight:700}
+  .stat-help{border:1px solid #b9cdef;background:var(--accent-soft);border-radius:10px;padding:10px 14px;font-size:.93em;max-width:760px;margin:0 auto}
+  .verre{position:relative;border-bottom:2px dotted var(--accent);color:var(--accent);cursor:help;outline:none}
+  .verre .pop{display:none;position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);z-index:20;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:8px 10px 6px;text-align:center;white-space:nowrap}
+  .verre .pop{font-style:normal;text-decoration:none;font-weight:400}
+  .verre .pop svg{display:block;margin:0 auto}
+  .verre .pop .cap{display:block;font-size:.85em;color:var(--ink);font-weight:600}
+  .verre:hover .pop,.verre:focus .pop{display:block}
+  .q .lead{display:flex;gap:8px}
+  .q .lead::before{content:"→";color:var(--accent);font-weight:700}
+  textarea,input[type=text]{font:inherit;color:var(--ink);border:1px solid #b9c1ce;border-radius:8px;padding:7px 10px;background:#fbfcfe}
+  textarea{width:100%;min-height:78px;resize:vertical;margin-top:6px}
+  textarea:focus,input:focus{outline:2px solid var(--accent);outline-offset:1px;background:#fff}
+  input.num{width:110px;text-align:center}
+  .inline{display:inline-block;margin:6px 18px 6px 0;white-space:nowrap}
+  .inline input{vertical-align:middle;margin:0 4px}
+  sub,sup{line-height:0}
+  .code-in{width:1.6em;font:inherit;font-weight:700;text-align:center;border:0;border-bottom:2px dashed #1d2433;background:#fbfcfe;padding:0;margin-left:1px}
+  .callout{border-left:4px solid var(--warn);background:var(--warn-soft);padding:8px 12px;border-radius:0 8px 8px 0;margin:12px 0;font-weight:600;color:var(--warn)}
+  .reminder{border:1px solid #b9cdef;background:var(--accent-soft);border-radius:10px;padding:12px 16px;margin:10px 0 12px;display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+  .reminder b{color:var(--accent)}
+  table.data{border-collapse:collapse;margin:8px auto 18px;min-width:min(100%,560px)}
+  table.data th,table.data td{border:1px solid #9aa3b2;padding:4px 8px;text-align:center}
+  table.data th{background:#f1f3f7;font-weight:600;font-style:italic}
+  table.data td.rowh{font-weight:700;font-style:italic;background:#fafbfc}
+  table.data td input{width:100%;max-width:120px;border:1px solid transparent;background:transparent;text-align:center;padding:6px}
+  table.data td input:hover{border-color:#c9d0db}
+  .tablewrap{overflow-x:auto}
+  .caption{text-align:center;text-decoration:underline;margin-top:14px}
+  .histos{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:10px}
+  @media (max-width:760px){.histos{grid-template-columns:1fr}}
+  .histo{border:1px solid var(--line);border-radius:10px;padding:8px 6px 10px;text-align:center}
+  .histo svg{width:100%;height:auto;touch-action:none;user-select:none}
+  .histo .name{font-weight:600;font-style:italic;text-decoration:underline}
+  .histo .vals{display:flex;justify-content:center;gap:6px;margin-top:6px;flex-wrap:wrap}
+  .histo .vals label{font-size:.82em;color:var(--muted);display:flex;flex-direction:column;align-items:center}
+  .histo .vals input{width:70px;text-align:center;padding:4px}
+  .hint{font-size:.88em;color:var(--muted)}
+  .graphbox{border:1px solid var(--line);border-radius:10px;padding:10px;margin:10px 0}
+  .graphbox svg{width:100%;height:auto;touch-action:none;user-select:none;cursor:crosshair;display:block}
+  .graphtools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:6px}
+  .graphtools button{font:inherit;font-size:.9em;border:1px solid #b9c1ce;background:#f6f8fb;border-radius:8px;padding:5px 10px;cursor:pointer}
+  .readout{font-family:Consolas,monospace;background:#eef4ff;border:1px solid #b9cdef;border-radius:6px;padding:3px 8px}
+  .annexe-title{text-align:center;font-weight:700;text-decoration:underline;font-size:1.05em;margin:0 0 16px}
+  .masses{display:flex;flex-wrap:wrap;justify-content:space-around;gap:10px}
+  .stamp{display:inline-block;border:1.5px dashed var(--warn);color:var(--warn);border-radius:6px;padding:2px 8px;font-size:.85em;font-weight:600;margin-left:6px}
+  @media print{
+    .toolbar,.graphtools button,.hint{display:none}
+    body{background:#fff}
+    .sheet{box-shadow:none;padding:0;margin-bottom:12px;page-break-inside:auto}
+    main{margin:0;max-width:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <span class="t">Précision de la verrerie de laboratoire et préparation d’une solution par dissolution</span>
+  </div>
+
+<main>
+<!-- ===================== PAGE 1 ===================== -->
+<section class="sheet">
+  <header class="head">
+    <div class="theme">CONSTITUTION ET TRANSFORMATION DE LA MATIÈRE</div>
+    <div class="code">AE0<input type="text" class="code-in" data-k="ae_num" maxlength="2" aria-label="Numéro de l’activité"></div>
+    <div class="title">PRÉCISION DE LA VERRERIE DE LABORATOIRE ET PRÉPARATION D’UNE SOLUTION PAR DISSOLUTION</div>
+  </header>
+
+  <div class="id-row">
+    <label>N° de poste <input type="text" data-k="poste" class="num" style="width:80px"></label>
+    <label>NOMS <input type="text" data-k="noms" style="width:320px;max-width:60vw"></label>
+    <div class="save-box"><button class="btn-save" type="button" id="saveBtn">💾 Enregistrer mon travail</button>
+    <span class="save-note">📁 Voir consigne professeur pour le dossier d’enregistrement.</span></div>
+    <span id="saveMsg" aria-live="polite"></span>
+  </div>
+
+  <p class="goal">Le but de ce TP est de comprendre comment préparer une <b>solution aqueuse de concentration en masse</b> donnée le plus précisément et le plus rigoureusement possible.</p>
+
+  <h3 style="text-decoration:underline">Matériel et produits</h3>
+  <div class="cols">
+    <ul class="mat"><li>fiole jaugée de 50 mL, de 100 mL</li><li>bécher de 150 mL, entonnoir</li><li>éprouvette graduée de 100 mL (plastique)</li></ul>
+    <ul class="mat"><li>balance, coupelle de pesée, spatule</li><li>pissette d’eau distillée, papier absorbant</li><li>chlorure de sodium en poudre</li></ul>
+  </div>
+
+  <div class="docs">
+    <div class="doc">
+      <h4>Étiquette d’une solution aqueuse de chlorure de sodium (sérum physiologique)</h4>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <img src="data:image/jpeg;base64,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" alt="Boîte de sérum physiologique" style="width:260px;max-width:100%;display:block">
+        <div>Pour 100 mL de solution :<br>– masse de chlorure de sodium : 9,0 g<br>– eau en quantité suffisante pour obtenir 100,0 mL</div>
+      </div>
+    </div>
+    <div class="doc">
+      <h4>Concentration en masse (en g·L<sup>−1</sup>)</h4>
+      <div class="formula"><span>C<sub>m</sub> =</span> <span class="frac"><span>m<sub>soluté</sub></span><span>V<sub>solution</sub></span></span></div>
+    </div>
+  </div>
+
+  <div class="doc" style="margin-top:16px">
+    <h4>Protocole de préparation de solution par dissolution</h4>
+    <p style="margin:0">Visionnons ensemble la vidéo suivante :
+      <a href="https://ladigitale.dev/digiview/#/v/19dbaccc00ec8e39" target="_blank" rel="noopener">▶ vidéo du protocole de dissolution</a></p>
+  </div>
+</section>
+
+<!-- ===================== I ===================== -->
+<section class="sheet">
+  <h2>I. Choix de la verrerie adaptée</h2>
+  <div class="q"><div class="lead"><span>Afin de choisir la verrerie la plus précise pour préparer la solution, peser précisément <span class="verre" tabindex="0">le bécher<span class="pop" role="tooltip"><svg viewBox="0 0 160 190" width="160" height="190" aria-hidden="true">
+<path d="M36 85 L124 85 L124 168 Q124 176 116 176 L44 176 Q36 176 36 168 Z" fill="#bfe1f7"/>
+<path d="M26 30 Q34 34 34 44 L34 168 Q34 178 44 178 L116 178 Q126 178 126 168 L126 30" stroke="#3b4a63" stroke-width="2" fill="none"/>
+<line x1="40" x2="56.0" y1="160" y2="160" stroke="#3b4a63" stroke-width="1"/><line x1="40" x2="56.0" y1="145" y2="145" stroke="#3b4a63" stroke-width="1"/><line x1="40" x2="56.0" y1="130" y2="130" stroke="#3b4a63" stroke-width="1"/><line x1="40" x2="56.0" y1="115" y2="115" stroke="#3b4a63" stroke-width="1"/><line x1="40" x2="56.0" y1="100" y2="100" stroke="#3b4a63" stroke-width="1"/><line x1="40" x2="56.0" y1="85" y2="85" stroke="#3b4a63" stroke-width="1"/><line x1="40" x2="56.0" y1="70" y2="70" stroke="#3b4a63" stroke-width="1"/>
+<text x="60" y="88" font-size="9" fill="#3b4a63">100</text><text x="60" y="133" font-size="9" fill="#3b4a63">50</text>
+<text x="80" y="60" font-size="10" fill="#3b4a63" text-anchor="middle">150 mL</text>
+</svg><span class="cap">Bécher de 150 mL</span></span></span>, <span class="verre" tabindex="0">l’éprouvette graduée<span class="pop" role="tooltip"><svg viewBox="0 0 160 230" width="140" height="210" aria-hidden="true">
+<path d="M64 60 L96 60 L96 200 L64 200 Z" fill="#bfe1f7"/>
+<path d="M58 14 Q64 16 64 22 L64 200 L96 200 L96 14" stroke="#3b4a63" stroke-width="2" fill="none"/>
+<path d="M44 200 L116 200 L120 214 L40 214 Z" fill="#dfe5ee" stroke="#3b4a63" stroke-width="2"/>
+<line x1="66" x2="80.0" y1="195" y2="195" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="187" y2="187" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="179" y2="179" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="171" y2="171" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="163" y2="163" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="80.0" y1="155" y2="155" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="147" y2="147" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="139" y2="139" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="131" y2="131" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="123" y2="123" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="80.0" y1="115" y2="115" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="107" y2="107" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="99" y2="99" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="91" y2="91" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="83" y2="83" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="80.0" y1="75" y2="75" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="67" y2="67" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="59" y2="59" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="51" y2="51" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="43" y2="43" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="80.0" y1="35" y2="35" stroke="#3b4a63" stroke-width="1"/><line x1="66" x2="73.7" y1="27" y2="27" stroke="#3b4a63" stroke-width="1"/>
+<text x="100" y="63" font-size="9" fill="#3b4a63">100</text><text x="100" y="123" font-size="9" fill="#3b4a63">50</text>
+<text x="80" y="226" font-size="10" fill="#3b4a63" text-anchor="middle">100 mL</text>
+</svg><span class="cap">Éprouvette graduée de 100 mL</span></span></span> et <span class="verre" tabindex="0">la fiole jaugée<span class="pop" role="tooltip"><svg viewBox="0 0 160 230" width="150" height="215" aria-hidden="true">
+<path d="M71 70 L71 150 Q30 162 30 190 Q30 214 80 214 Q130 214 130 190 Q130 162 89 150 L89 70 Z" fill="#bfe1f7"/>
+<path d="M71 26 L71 150 Q30 162 30 190 Q30 214 80 214 Q130 214 130 190 Q130 162 89 150 L89 26" stroke="#3b4a63" stroke-width="2" fill="none"/>
+<rect x="68" y="10" width="24" height="16" rx="3" fill="#e9b949" stroke="#3b4a63" stroke-width="1.5"/>
+<line x1="68" x2="92" y1="70" y2="70" stroke="#c0392b" stroke-width="2"/>
+<text x="96" y="73" font-size="9" fill="#c0392b">trait de jauge</text>
+<text x="80" y="198" font-size="10" fill="#3b4a63" text-anchor="middle">100 mL</text>
+</svg><span class="cap">Fiole jaugée de 100 mL</span></span></span> mis à votre disposition : noter vos résultats dans l’<a href="#annexe">annexe</a> en bas de page.</span></div></div>
+  <div class="q"><div class="lead"><span>Remplir chacun de ces récipients avec l’eau du robinet jusqu’à la graduation 100 mL puis peser la masse d’eau que chacun d’eux contient et noter les résultats (en g) dans la première ligne du tableau n°1 de l’<a href="#annexe">annexe</a>.<br>
+  Vider les récipients, essuyer leur partie extérieure et refaire les opérations afin d’obtenir 3 mesures pour chaque verrerie afin de compléter le tableau n°1 (soit 9 mesures en tout).</span></div></div>
+  <div class="q"><div class="lead"><span>Pour chacune des mesures de masse effectuées précédemment, calculer le volume d’eau correspondant (ρ<sub>eau</sub> = 1,00 g·mL<sup>−1</sup>) afin de compléter le tableau n°2 de l’<a href="#annexe">annexe</a>.</span></div></div>
+  <div class="q"><div class="lead"><span>Pour chaque verrerie, construire un histogramme (voir <a href="#annexe">annexe</a>) en représentant, pour chaque mesure réalisée (numéro situé en abscisse), un trait dont la hauteur est proportionnelle au volume d’eau obtenu (avec 3 chiffres significatifs).<br>
+  <i>Attention : l’axe vertical des volumes a pour première graduation 95 mL afin de rendre les tracés des traits les plus précis possible (graduations de 5 en 5 mL, chaque carreau vaut 0,5 mL).</i></span></div></div>
+  <div class="q"><div class="lead"><span>En déduire, en justifiant, la verrerie la plus adaptée à la préparation de la solution.</span></div>
+    <textarea data-k="I_verrerie"></textarea></div>
+</section>
+
+<!-- ===================== II ===================== -->
+<section class="sheet">
+  <h2>II. Préparation de la solution</h2>
+  <div class="q"><div class="lead"><span>Identifier le soluté et le solvant de la solution de sérum physiologique.</span></div>
+    <span class="inline">Solvant : <input type="text" data-k="II_solvant" style="width:220px"></span>
+    <span class="inline">Soluté : <input type="text" data-k="II_solute" style="width:220px"></span>
+  </div>
+  <div class="q"><div class="lead"><span>À partir de l’indication de l’étiquette de la boîte de sérum, indiquer la masse <i>m</i> de chlorure de sodium à utiliser pour préparer 50 mL de ce sérum physiologique.</span></div>
+    <div style="margin-top:8px">Détailler votre calcul : écrire la formule littérale puis l’application numérique.</div>
+    <div class="hint">Remarque : C<sub>m</sub> (avec l’indice) pourra être noté Cm. Même chose avec m<sub>soluté</sub>, qui pourra être noté msoluté.</div>
+    <textarea data-k="II_masse" style="min-height:100px"></textarea>
+  </div>
+  <div class="callout">✋ Appel professeur pour vérification avant de préparer la solution !</div>
+  <ul><li>Préparer la solution en vous aidant du protocole de la vidéo (n’hésitez pas à la re-visionner).</li></ul>
+  <div class="callout">✋ Faire vérifier votre solution (notamment l’ajustement au trait de jauge) avant de continuer.</div>
+</section>
+
+<!-- ===================== III ===================== -->
+<section class="sheet">
+  <h2>III. Validation de l’expérience</h2>
+  <div class="q"><div class="lead"><span>Calculer la concentration en masse C<sub>m</sub> en chlorure de sodium de la solution préparée, en g/L.</span></div>
+    <textarea data-k="III_t_calc" placeholder="Calcul…"></textarea>
+    <span class="inline">Résultat (2 chiffres significatifs et unité) : <b>C<sub>m</sub> =</b> <input type="text" data-k="III_t" style="width:160px"></span>
+  </div>
+
+  <div class="q"><div class="lead"><span>Déterminer expérimentalement la masse volumique ρ de votre solution et noter vos résultats.</span></div>
+    <div class="reminder">
+      <span><b>Rappel</b> – masse volumique d’une solution :</span>
+      <span class="formula">ρ = <span class="frac"><span>m<sub>solution</sub></span><span>V<sub>solution</sub></span></span></span>
+    </div>
+    <div>
+      <span class="inline">m<sub>fiole vide</sub> = <input type="text" class="num" data-k="III_mvide"> g</span>
+      <span class="inline">m<sub>fiole + solution</sub> = <input type="text" class="num" data-k="III_mpleine"> g</span>
+    </div>
+    <div>
+      <span class="inline">m<sub>solution</sub> = <input type="text" class="num" data-k="III_msol"> g</span>
+      <span class="inline">V<sub>solution</sub> = <input type="text" class="num" data-k="III_vsol"> mL</span>
+      <span class="inline"><b>ρ =</b> <input type="text" class="num" data-k="III_rho"> g·mL<sup>−1</sup></span>
+    </div>
+    <div style="margin-top:10px">Quel calcul avez-vous effectué pour calculer ρ ? Répondre par une phrase (ou plusieurs).</div>
+    <textarea data-k="III_rho_calc"></textarea>
+  </div>
+
+  <div class="q"><div class="lead"><span>Le graphe ci-dessous représente la masse volumique ρ de solutions de chlorure de sodium en fonction de leur concentration en masse C<sub>m</sub>. Indiquer comment celui-ci permet de vérifier la bonne concentration de la solution et le mettre en œuvre.</span></div>
+
+    <div class="graphbox">
+      <svg id="g02" viewBox="0 0 760 470" aria-label="Graphe ρ en fonction de Cm (activité expérimentale N°02)"></svg>
+      <div class="graphtools">
+        <span>Réticule : <span class="readout" id="ret">C<sub>m</sub> = — ; ρ = —</span></span>
+        <button type="button" id="retFix">📌 Fixer le réticule</button>
+        <span class="hint">Déplacez la souris (ou le doigt) sur le graphe ; cliquez pour fixer / libérer le réticule.</span>
+      </div>
+    </div>
+
+    <textarea data-k="III_graphe_methode" placeholder="Comment le graphe permet-il de vérifier la concentration ?"></textarea>
+    <div style="margin-top:8px">
+      <span class="inline">ρ mesurée = <input type="text" class="num" data-k="III_rho_g"> g·mL<sup>−1</sup></span>
+      <span class="inline">C<sub>m</sub> lue sur le graphe = <input type="text" class="num" data-k="III_cm_lue"> g·L<sup>−1</sup></span>
+    </div>
+    <textarea data-k="III_graphe_conclu" placeholder="Comparaison avec la valeur attendue et conclusion…"></textarea>
+  </div>
+</section>
+
+<!-- ===================== ANNEXE ===================== -->
+<section class="sheet" id="annexe">
+  <p class="annexe-title">PRÉCISION DE LA VERRERIE DE LABORATOIRE ET PRÉPARATION D’UNE SOLUTION PAR DISSOLUTION – ANNEXE</p>
+  <div class="masses">
+    <span class="inline"><i><b>m</b><sub>bécher</sub></i> = <input type="text" class="num" data-k="A_mbecher"> g</span>
+    <span class="inline"><i><b>m</b><sub>éprouvette graduée</sub></i> = <input type="text" class="num" data-k="A_meprouvette"> g</span>
+    <span class="inline"><i><b>m</b><sub>fiole</sub></i> = <input type="text" class="num" data-k="A_mfiole"> g</span>
+  </div>
+
+  <div class="caption">Tableau n°1</div>
+  <div class="tablewrap">
+  <table class="data" id="t1">
+    <tr><th style="background:none;border:0"></th><th>bécher</th><th>éprouvette graduée</th><th>fiole jaugée</th></tr>
+  </table>
+  </div>
+
+  <div class="caption">Tableau n°2</div>
+  <div class="tablewrap">
+  <table class="data" id="t2">
+    <tr><th style="background:none;border:0"></th><th>bécher</th><th>éprouvette graduée</th><th>fiole jaugée</th></tr>
+  </table>
+  </div>
+
+  <div class="caption">Histogrammes</div>
+  <p class="hint" style="text-align:center;margin:4px 0 0">Faites glisser le haut de chaque trait pour régler le volume d’eau (ou tapez la valeur sous le graphique).</p>
+  <div class="histos" id="histos"></div>
+
+  <div class="stats">
+    <div class="caption" style="margin-top:22px">Critères statistiques</div>
+    <p class="hint" style="text-align:center;margin:4px 0 8px">Calculés automatiquement à partir des volumes des histogrammes (3 mesures par verrerie).</p>
+    <div class="tablewrap">
+    <table class="data" id="statsTable">
+      <tr><th style="background:none;border:0"></th><th>bécher</th><th>éprouvette graduée</th><th>fiole jaugée</th></tr>
+      <tr><td class="rowh">Volume moyen <span class="ov">V</span> (mL)</td><td data-s="becher-m"></td><td data-s="eprouvette-m"></td><td data-s="fiole-m"></td></tr>
+      <tr><td class="rowh">Écart à 100 mL : |<span class="ov">V</span> − 100| (mL)<br><span class="crit">justesse</span></td><td data-s="becher-e"></td><td data-s="eprouvette-e"></td><td data-s="fiole-e"></td></tr>
+      <tr><td class="rowh">Écart-type <i>s</i> (mL)<br><span class="crit">fidélité (dispersion)</span></td><td data-s="becher-s"></td><td data-s="eprouvette-s"></td><td data-s="fiole-s"></td></tr>
+    </table>
+    </div>
+    <div class="stat-help">
+      <b>Comment lire ce tableau ?</b> La verrerie la plus précise est celle dont le volume moyen est le plus proche de 100 mL
+      (<b>écart à 100 mL le plus petit</b> → la plus <i>juste</i>) et dont les mesures sont les moins dispersées
+      (<b>écart-type le plus petit</b> → la plus <i>fidèle</i>). Le meilleur résultat de chaque ligne est surligné en vert.
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+(function(){
+  "use strict";
+  const NS = "http://www.w3.org/2000/svg";
+  const VERR = [["becher","bécher"],["eprouvette","éprouvette graduée"],["fiole","fiole jaugée"]];
+  const num = s => { if (s==null) return NaN; s = String(s).trim().replace(",", "."); return s==="" ? NaN : Number(s); };
+  const fr = (x, d) => x.toFixed(d).replace(".", ",");
+  const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+
+  /* ---------- Tableaux de l'annexe ---------- */
+  function buildTable(id, head, prefix){
+    const t = document.getElementById(id);
+    if (t.rows.length > 1) return; // déjà construit (fichier ré-ouvert)
+    for (let i=1;i<=3;i++){
+      const tr = t.insertRow();
+      if (i===1){ const td = tr.insertCell(); td.rowSpan = 3; td.className="rowh"; td.innerHTML = head; }
+      VERR.forEach(([k]) => { const td = tr.insertCell(); td.innerHTML = '<input type="text" data-k="'+prefix+'_'+k+'_'+i+'" aria-label="'+prefix+' '+k+' mesure '+i+'">'; });
+    }
+  }
+  buildTable("t1", "masse d’eau<br>(en g)", "m");
+  buildTable("t2", "volume d’eau<br>V (en mL)", "V");
+
+  /* ---------- Histogrammes réglables ---------- */
+  const H = {W:240, Hh:420, L:46, R:12, T:26, B:44, vmin:95, vmax:105};
+  const yOf = v => H.T + (H.vmax - v) / (H.vmax - H.vmin) * (H.Hh - H.T - H.B);
+  const vOf = y => H.vmax - (y - H.T) / (H.Hh - H.T - H.B) * (H.vmax - H.vmin);
+  const xOf = i => H.L + (H.W - H.L - H.R) * (i) / 4;
+
+  const histos = document.getElementById("histos");
+  if (!histos.children.length){
+    VERR.forEach(([k, label]) => {
+      const d = document.createElement("div"); d.className = "histo";
+      d.innerHTML = '<svg viewBox="0 0 '+H.W+' '+H.Hh+'" data-h="'+k+'"></svg><div class="name">'+label+'</div><div class="vals">' +
+        [1,2,3].map(i => '<label>mesure '+i+'<input type="text" data-k="H_'+k+'_'+i+'" placeholder="mL"></label>').join("") + '</div>';
+      histos.appendChild(d);
+    });
+  }
+
+  function updateStats(){
+    const res = {};
+    VERR.forEach(([k]) => {
+      const v = [1,2,3].map(i => num(document.querySelector('[data-k="H_'+k+'_'+i+'"]').value)).filter(isFinite);
+      const n = v.length;
+      const m = n ? v.reduce((a,b)=>a+b,0)/n : NaN;
+      const sd = n >= 2 ? Math.sqrt(v.reduce((a,b)=>a+(b-m)*(b-m),0)/(n-1)) : NaN;
+      res[k] = {m, e: Math.abs(m-100), s: sd, n};
+    });
+    ["m","e","s"].forEach(key => {
+      const vals = VERR.map(([k]) => res[k][key]);
+      const complete = VERR.every(([k]) => res[k].n === 3);
+      const best = (key !== "m" && complete) ? Math.min(...vals) : NaN;
+      VERR.forEach(([k]) => {
+        const td = document.querySelector('[data-s="'+k+'-'+key+'"]');
+        const x = res[k][key];
+        td.textContent = isFinite(x) ? fr(x, key === "m" ? 2 : 2) : "—";
+        td.classList.toggle("best", isFinite(best) && isFinite(x) && Math.abs(x - best) < 1e-9);
+      });
+    });
+  }
+
+  function drawHisto(svg){
+    const k = svg.dataset.h;
+    svg.innerHTML = "";
+    const g = el("g", {}, svg);
+    // grille
+    for (let k2=0; k2<=(H.vmax-H.vmin)*2; k2++){
+      const v = H.vmin + k2/2;
+      const lab = v % 5 === 0;
+      el("line", {x1:H.L, x2:H.W-H.R, y1:yOf(v), y2:yOf(v), stroke: lab ? "#9aa3b2" : "#dde1e8", "stroke-width": lab?1:0.8}, g);
+      if (lab){ el("line", {x1:H.L-4, x2:H.L, y1:yOf(v), y2:yOf(v), stroke:"#1d2433"}, g); const t = el("text", {x:H.L-7, y:yOf(v)+4, "text-anchor":"end", "font-size":12, fill:"#1d2433"}, g); t.textContent = v; }
+    }
+    for (let i=1;i<=3;i++){
+      el("line", {x1:xOf(i), x2:xOf(i), y1:H.T, y2:H.Hh-H.B, stroke:"#e7eaf0"}, g);
+      const t = el("text", {x:xOf(i), y:H.Hh-H.B+18, "text-anchor":"middle", "font-size":13, "font-weight":600}, g); t.textContent = i;
+    }
+    // axes
+    el("line", {x1:H.L, x2:H.L, y1:H.T-14, y2:H.Hh-H.B, stroke:"#1d2433", "stroke-width":1.5}, g);
+    el("path", {d:"M"+(H.L-4)+","+(H.T-8)+" L"+H.L+","+(H.T-16)+" L"+(H.L+4)+","+(H.T-8), fill:"none", stroke:"#1d2433", "stroke-width":1.5}, g);
+    el("line", {x1:H.L, x2:H.W-H.R+4, y1:H.Hh-H.B, y2:H.Hh-H.B, stroke:"#1d2433", "stroke-width":1.5}, g);
+    const yl = el("text", {x:H.L+6, y:H.T-6, "font-size":12, "font-weight":700}, g); yl.textContent = "V (mL)";
+    // traits
+    for (let i=1;i<=3;i++){
+      const inp = document.querySelector('[data-k="H_'+k+'_'+i+'"]');
+      const raw = num(inp.value);
+      let v = raw;
+      const has = isFinite(v);
+      if (has) v = Math.min(H.vmax, Math.max(H.vmin, v));
+      const yTop = has ? yOf(v) : yOf(H.vmin);
+      if (has) el("line", {x1:xOf(i), x2:xOf(i), y1:H.Hh-H.B, y2:yTop, stroke:"#1f5fbf", "stroke-width":6, "stroke-linecap":"butt"}, g);
+      // poignée
+      const hdl = el("g", {class:"hdl", "data-i":i, style:"cursor:ns-resize"}, g);
+      el("rect", {x:xOf(i)-16, y:yTop-9, width:32, height:18, rx:5, fill: has ? "#1f5fbf" : "#ffffff", stroke:"#1f5fbf", "stroke-width":1.5, "stroke-dasharray": has ? "" : "3 2"}, hdl);
+      el("path", {d:"M"+(xOf(i)-5)+","+(yTop-2)+" L"+xOf(i)+","+(yTop-6)+" L"+(xOf(i)+5)+","+(yTop-2)+" M"+(xOf(i)-5)+","+(yTop+2)+" L"+xOf(i)+","+(yTop+6)+" L"+(xOf(i)+5)+","+(yTop+2), fill:"none", stroke: has ? "#fff" : "#1f5fbf", "stroke-width":1.5}, hdl);
+      if (has){ const t = el("text", {x:xOf(i), y:yTop-14, "text-anchor":"middle", "font-size":11.5, "font-weight":700, fill:"#1f5fbf"}, g); t.textContent = fr(raw,1) + (raw > H.vmax ? " ↑" : raw < H.vmin ? " ↓" : ""); }
+    }
+    updateStats();
+  }
+
+  function svgPoint(svg, evt){
+    const p = svg.createSVGPoint(); p.x = evt.clientX; p.y = evt.clientY;
+    return p.matrixTransform(svg.getScreenCTM().inverse());
+  }
+
+  /* Survol de la verrerie sous les histogrammes : on réutilise les dessins de la partie I */
+  const pops = document.querySelectorAll(".q .verre .pop");
+  document.querySelectorAll(".histo .name").forEach((nm, i) => {
+    if (nm.querySelector(".verre") || !pops[i]) return;
+    const sp = document.createElement("span");
+    sp.className = "verre"; sp.tabIndex = 0;
+    sp.textContent = nm.textContent;
+    sp.appendChild(pops[i].cloneNode(true));
+    nm.textContent = ""; nm.appendChild(sp);
+  });
+
+  document.querySelectorAll("svg[data-h]").forEach(svg => {
+    const k = svg.dataset.h;
+    let dragI = 0;
+    const setFromY = (y) => {
+      let v = Math.round(vOf(y) * 10) / 10;
+      v = Math.min(H.vmax, Math.max(H.vmin, v));
+      document.querySelector('[data-k="H_'+k+'_'+dragI+'"]').value = fr(v,1);
+      drawHisto(svg); persistDraft();
+    };
+    svg.addEventListener("pointerdown", e => {
+      const p = svgPoint(svg, e);
+      // colonne la plus proche
+      let best = 0, bd = 1e9;
+      for (let i=1;i<=3;i++){ const d = Math.abs(p.x - xOf(i)); if (d < bd){ bd = d; best = i; } }
+      if (bd > 26 || p.y < H.T-10 || p.y > H.Hh-H.B+4) return;
+      dragI = best; svg.setPointerCapture(e.pointerId); setFromY(p.y); e.preventDefault();
+    });
+    svg.addEventListener("pointermove", e => { if (dragI) setFromY(svgPoint(svg, e).y); });
+    const end = () => { dragI = 0; };
+    svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
+    drawHisto(svg);
+  });
+  document.querySelectorAll('[data-k^="H_"]').forEach(inp => inp.addEventListener("input", () => {
+    drawHisto(document.querySelector('svg[data-h="'+inp.dataset.k.split("_")[1]+'"]'));
+  }));
+
+  /* ---------- Graphe de l'activité N°02 (données LatisPro) ---------- */
+  const CM  = [75,100,125,150,175,200,225];
+  const RHO = [1.0463,1.0594,1.0734,1.0829,1.1024,1.1182,1.1310];
+  const A = 0.000572642857142877, B = 1.00176785714285; // Modèle affine LatisPro : rho = A*Cm + B
+  const G = {W:760, Hh:470, L:70, R:24, T:30, B:52, xmin:0, xmax:250, ymin:1.00, ymax:1.15};
+  const gx = x => G.L + (x - G.xmin) / (G.xmax - G.xmin) * (G.W - G.L - G.R);
+  const gy = y => G.T + (G.ymax - y) / (G.ymax - G.ymin) * (G.Hh - G.T - G.B);
+  const ix = px => G.xmin + (px - G.L) / (G.W - G.L - G.R) * (G.xmax - G.xmin);
+  const iy = py => G.ymax - (py - G.T) / (G.Hh - G.T - G.B) * (G.ymax - G.ymin);
+  const g02 = document.getElementById("g02");
+  let ret = null, fixed = false;
+
+  function drawG(){
+    g02.innerHTML = "";
+    const g = el("g", {}, g02);
+    for (let x=G.xmin; x<=G.xmax; x+=25){
+      el("line", {x1:gx(x), x2:gx(x), y1:G.T, y2:G.Hh-G.B, stroke:"#c5cad3", "stroke-dasharray":"1 3"}, g);
+      const t = el("text", {x:gx(x), y:G.Hh-G.B+18, "text-anchor":"middle", "font-size":12}, g); t.textContent = x;
+    }
+    for (let i=0;i<=15;i++){
+      const y = G.ymin + i*0.01;
+      el("line", {x1:G.L, x2:G.W-G.R, y1:gy(y), y2:gy(y), stroke:"#c5cad3", "stroke-dasharray": i%5===0 ? "" : "1 3", "stroke-opacity": i%5===0?0.7:1}, g);
+      const t = el("text", {x:G.L-8, y:gy(y)+4, "text-anchor":"end", "font-size":12}, g); t.textContent = fr(y,2);
+    }
+    el("line", {x1:G.L, x2:G.L, y1:G.T-14, y2:G.Hh-G.B, stroke:"#1d2433", "stroke-width":1.4}, g);
+    el("line", {x1:G.L, x2:G.W-G.R+10, y1:G.Hh-G.B, y2:G.Hh-G.B, stroke:"#1d2433", "stroke-width":1.4}, g);
+    const yl = el("text", {x:G.L+8, y:G.T-10, "font-size":13, fill:"#c2189b"}, g);
+    yl.innerHTML = '<tspan fill="#d0021b">rho</tspan>, Modèle de rho  <tspan fill="#5b6475">(g/mL)</tspan>';
+    const xl = el("text", {x:G.W-G.R, y:G.Hh-12, "text-anchor":"end", "font-size":13}, g); xl.textContent = "Cm en g/L";
+    // modèle
+    el("line", {x1:gx(G.xmin), y1:gy(A*G.xmin+B), x2:gx(G.xmax), y2:gy(A*G.xmax+B), stroke:"#c2189b", "stroke-width":1.6}, g);
+    // points
+    CM.forEach((x,i) => {
+      const X = gx(x), Y = gy(RHO[i]);
+      el("path", {d:"M"+(X-5)+","+Y+" H"+(X+5)+" M"+X+","+(Y-5)+" V"+(Y+5), stroke:"#d0021b", "stroke-width":1.6}, g);
+    });
+    // réticule
+    if (ret){
+      const X = gx(ret.x), Y = gy(ret.y);
+      el("line", {x1:X, x2:X, y1:G.T, y2:G.Hh-G.B, stroke:"#2b59ff", "stroke-dasharray":"4 3"}, g);
+      el("line", {x1:G.L, x2:G.W-G.R, y1:Y, y2:Y, stroke:"#2b59ff", "stroke-dasharray":"4 3"}, g);
+      const bx = el("g", {}, g);
+      el("rect", {x:X-34, y:G.Hh-G.B+3, width:68, height:20, fill:"#bcd3ff", stroke:"#2b59ff"}, bx);
+      const tx = el("text", {x:X, y:G.Hh-G.B+17, "text-anchor":"middle", "font-size":12, fill:"#0b1f66"}, bx); tx.textContent = fr(ret.x,1);
+      el("rect", {x:2, y:Y-10, width:G.L-6, height:20, fill:"#bcd3ff", stroke:"#2b59ff"}, bx);
+      const ty = el("text", {x:(G.L-2)/2, y:Y+4, "text-anchor":"middle", "font-size":12, fill:"#0b1f66"}, bx); ty.textContent = fr(ret.y,4);
+      if (fixed) el("circle", {cx:X, cy:Y, r:4, fill:"none", stroke:"#2b59ff", "stroke-width":1.5}, g);
+    }
+    document.getElementById("ret").innerHTML = ret ? "C<sub>m</sub> = " + fr(ret.x,1) + " g/L ; ρ = " + fr(ret.y,4) + " g/mL" : "C<sub>m</sub> = — ; ρ = —";
+    document.getElementById("retFix").textContent = fixed ? "🔓 Libérer le réticule" : "📌 Fixer le réticule";
+  }
+  function moveRet(e){
+    const p = svgPoint(g02, e);
+    const x = Math.min(G.xmax, Math.max(G.xmin, ix(p.x)));
+    const y = Math.min(G.ymax, Math.max(G.ymin, iy(p.y)));
+    ret = {x, y}; drawG();
+  }
+  g02.addEventListener("pointermove", e => { if (!fixed) moveRet(e); });
+  g02.addEventListener("pointerdown", e => { if (fixed){ fixed = false; moveRet(e); } else { moveRet(e); fixed = true; drawG(); } });
+  document.getElementById("retFix").addEventListener("click", () => { if (ret){ fixed = !fixed; drawG(); } });
+  drawG();
+
+  /* ---------- Pas de brouillon dans le navigateur (postes partagés) ---------- */
+  const fields = () => document.querySelectorAll("[data-k]");
+  function persistDraft(){}
+  try { localStorage.removeItem("AE04-dissolution-brouillon"); } catch(e){}   // purge d'anciennes versions
+  document.querySelectorAll("svg[data-h]").forEach(drawHisto);
+
+  /* ---------- Enregistrement ---------- */
+  const msg = document.getElementById("saveMsg");
+  function snapshot(){
+    fields().forEach(f => {
+      if (f.tagName === "TEXTAREA") f.textContent = f.value;
+      else f.setAttribute("value", f.value);
+    });
+    const now = new Date();
+    document.documentElement.setAttribute("data-saved", now.toISOString());
+    // Bloc JSON lisible par machine (pour la correction automatique)
+    const champs = {};
+    fields().forEach(f => champs[f.dataset.k] = f.value);
+    let js = document.getElementById("reponses-eleve");
+    if (!js){ js = document.createElement("script"); js.type = "application/json"; js.id = "reponses-eleve"; document.body.appendChild(js); }
+    js.textContent = JSON.stringify({ app: "AE04-dissolution", version: "1.0", enregistre_le: now.toISOString(),
+      enregistre_le_local: now.toLocaleString("fr-FR"), champs }, null, 1).replace(/</g, "\\u003c");
+    const savedRet = ret, savedFix = fixed; ret = null; fixed = false; drawG();
+    const html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+    ret = savedRet; fixed = savedFix; drawG();
+    return html;
+  }
+  async function save(){
+    const html = snapshot();
+    const blob = new Blob([html], {type:"text/html"});
+    const pad = n => String(n).padStart(2, "0");
+    const d = new Date();
+    const date = d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + "h" + pad(d.getMinutes()) + "m" + pad(d.getSeconds()) + "s";
+    const numAE = (document.querySelector('[data-k="ae_num"]').value || "").trim().replace(/[\\/:*?"<>|]/g, "");
+    const prefix = "AE0" + numAE + " - " + date + " - ";
+    // Anonymat : seul le numéro de poste figure dans le nom du fichier (les noms restent dans la fiche)
+    const clean = t => t.replace(/[\\/:*?"<>|]/g, "-");
+    const postePart = v => "Poste " + (String(v || "").trim().replace(/^poste\s*/i, "") || "xx");
+    const poste = document.querySelector('[data-k="poste"]').value.trim();
+    const suggested = clean(prefix + postePart(poste)) + ".html";
+    if (window.showSaveFilePicker){
+      try {
+        const h = await window.showSaveFilePicker({ suggestedName: suggested, types:[{description:"Page HTML", accept:{"text/html":[".html"]}}] });
+        const w = await h.createWritable(); await w.write(blob); await w.close();
+        msg.textContent = "✔ Enregistré : " + h.name; return;
+      } catch(e){ if (e && e.name === "AbortError") { msg.textContent = "Enregistrement annulé."; return; } }
+    }
+    // Navigateurs sans sélecteur de dossier (Firefox…) : l'élève indique seulement le numéro de poste
+    let part = prompt("Numéro de poste :", poste);
+    if (part === null) { msg.textContent = "Enregistrement annulé."; return; }
+    let name = clean(prefix + postePart(part)) + ".html";
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    msg.textContent = "✔ Téléchargé : " + name;
+  }
+  document.getElementById("saveBtn").addEventListener("click", save);
+})();
+</script>
+</body>
+</html>
