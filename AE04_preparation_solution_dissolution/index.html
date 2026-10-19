@@ -69,6 +69,7 @@
   .q .lead::before{content:"→";color:var(--accent);font-weight:700}
   textarea,input[type=text]{font:inherit;color:var(--ink);border:1px solid #b9c1ce;border-radius:8px;padding:7px 10px;background:#fbfcfe}
   textarea{width:100%;min-height:78px;resize:vertical;margin-top:6px}
+  input::placeholder,textarea::placeholder{color:#9aa3b2;font-style:italic;opacity:1}
   textarea:focus,input:focus{outline:2px solid var(--accent);outline-offset:1px;background:#fff}
   input.num{width:110px;text-align:center}
   .inline{display:inline-block;margin:6px 18px 6px 0;white-space:nowrap}
@@ -127,8 +128,8 @@
   </header>
 
   <div class="id-row">
-    <label>N° de poste <input type="text" data-k="poste" class="num" style="width:80px"></label>
-    <label>NOMS <input type="text" data-k="noms" style="width:320px;max-width:60vw"></label>
+    <label>N° de poste, Groupe <input type="text" data-k="poste" class="num" style="width:80px" placeholder="ex. : 7A"></label>
+    <label>NOMS <input type="text" data-k="noms" style="width:320px;max-width:60vw" placeholder="ex. : DUPONT Léa – MARTIN Hugo"></label>
     <div class="save-box"><button class="btn-save" type="button" id="saveBtn">💾 Enregistrer mon travail</button>
     <span class="save-note">📁 Voir consigne professeur pour le dossier d’enregistrement.</span></div>
     <span id="saveMsg" aria-live="polite"></span>

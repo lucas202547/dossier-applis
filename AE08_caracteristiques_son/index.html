@@ -48,11 +48,6 @@ kbd{font:12px ui-monospace,monospace;border:1px solid var(--line);border-bottom-
 input.cell,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 7px}
 input.cell{width:110px}
 textarea{width:100%;min-height:60px;resize:vertical}
-.ok{border-color:var(--ok)!important;background:var(--okbg)!important}
-.bad{border-color:var(--bad)!important;background:var(--badbg)!important}
-.warn{border-color:var(--warn)!important;background:var(--warnbg)!important}
-.msg{font-size:13px;margin-top:6px}
-.msg .g{color:var(--ok)} .msg .r{color:var(--bad)} .msg .o{color:var(--warn)}
 .hint{color:var(--muted);font-size:13px;margin:6px 0 0}
 .status{font-size:13px;color:var(--muted)}
 .def{border-left:4px solid var(--accent);background:var(--bg);padding:8px 12px;border-radius:0 7px 7px 0;font-size:14px;margin:8px 0}
@@ -90,11 +85,9 @@ table.cordes th{font-size:12px;color:var(--muted);font-weight:600;padding:4px 3p
 table.cordes td{padding:4px 3px;border-bottom:1px solid var(--line);text-align:center}
 table.cordes td:first-child{font-weight:600;white-space:nowrap}
 table.cordes input,table.cordes select{width:100%;min-width:0;padding:4px 5px}
-table.cordes td.st{width:22px;font-weight:700}
 table.cordes td:nth-child(2),table.cordes td:nth-child(3){width:19%}
 table.cordes td:nth-child(5){width:68px}
 table.cordes tr.cur td:first-child{color:var(--accent)}
-#msg1 div{margin:2px 0}
 .ans{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center}
 .ans label{font-size:14px}
 table.notes{border-collapse:collapse;font-size:13px;width:100%}
@@ -103,14 +96,20 @@ table.notes th{background:var(--bg);text-align:center}
 table.notes td:first-child{text-align:left;font-style:italic;background:var(--bg)}
 table.notes tr:hover td{background:var(--okbg)}
 .tablewrap{overflow-x:auto}
-#spec{width:100%;height:240px;display:block;border:1px solid var(--line);border-radius:8px;background:var(--plotbg)}
 .listen{display:flex;flex-wrap:wrap;gap:8px}
+#instrTip{position:fixed;z-index:50;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:10px 12px 6px;opacity:0;transform:translateY(4px);transition:opacity .15s,transform .15s}
+#instrTip.on{opacity:1;transform:none}
+#instrTip svg{display:block;height:170px;width:auto;max-width:300px;margin:0 auto}
+#instrTip svg.wide{height:auto;width:300px}
+#instrTip p{margin:4px 0 0;text-align:center;font-weight:600;font-size:14px}
+[data-img]{cursor:help}
+.listen [data-img]{cursor:pointer}
 
 .savebar{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;font-size:14px}
 .savebar input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;width:230px}
 .savebar button{padding:5px 10px;font-size:14px}
 #saveState{font-size:12px;color:var(--muted)}
-@media print{nav,.savebar button,.tools,button,#saveState{display:none!important}.page{display:block!important}section{break-inside:avoid}}
+@media print{#instrTip,nav,.savebar button,.tools,button,#saveState{display:none!important}.page{display:block!important}section{break-inside:avoid}}
 header .savebar{margin-top:10px}
 </style>
 </head>
@@ -118,7 +117,7 @@ header .savebar{margin-top:10px}
 <header>
   <div class="t"><h1>Caractéristiques d'un son</h1><span>Activité expérimentale n°08 · simulation LatisPro</span></div>
   <div class="savebar">
-    <label for="eleve">Nom(s) :</label><input id="eleve" placeholder="Noms, prénoms, classe" autocomplete="off">
+    <label for="eleve">N° de poste, Groupe, Nom(s) :</label><input id="eleve" placeholder="Ex : 1A Durand Martin" autocomplete="off">
     <button id="saveFile" title="Télécharger un fichier contenant toutes les valeurs saisies">💾 Enregistrer</button>
     <button id="openFile" title="Recharger un fichier enregistré">📂 Ouvrir</button>
     <button id="resetAll" title="Effacer toutes les valeurs saisies">🗑 Tout effacer</button>
@@ -237,8 +236,8 @@ header .savebar{margin-top:10px}
   <section>
     <h2>Acquisition (LatisPro simulé)</h2>
     <div id="scope1"></div>
-    <p class="hint">Réticule : survole la courbe pour lire t et U. <b>Double-clic</b> = origine relative du réticule. Clic simple = repères A puis B (Δt = t<sub>B</sub> − t<sub>A</sub>). Molette = zoom horizontal, Maj + molette = zoom vertical.
-    Astuce : mesure la durée de plusieurs périodes, puis divise.</p>
+    <p class="hint">Réticule : affiche les coordonnées d'un point du graphe. <b>Double-clic</b> = origine relative du réticule. Clic simple = repères A puis B (Δt = t<sub>B</sub> − t<sub>A</sub>). Molette = zoom horizontal, Maj + molette = zoom vertical.
+    Astuce : mesure la durée de plusieurs périodes, puis divise par le nombre de périodes pour gagner en précision.</p>
   </section>
 </div>
 
@@ -246,23 +245,21 @@ header .savebar{margin-top:10px}
   <section>
     <h2>Rôle des éléments du montage</h2>
     <table class="roles" id="roles"></table>
-    <div class="row" style="margin-top:8px"><span class="spacer"></span><button id="checkroles" class="primary">Vérifier</button></div>
-    <div class="msg" id="rolesmsg"></div>
   </section>
 
   <section>
-    <h2>Questions 1 à 3 : fréquence de chaque corde</h2>
+    <h2>Fréquence de chaque corde</h2>
     <div class="def">Un signal est <b>périodique</b> s'il se répète identiquement à lui-même à intervalles de temps réguliers. La plus petite durée de répétition est la <b>période T</b> (en s).<br>
       Fréquence : <b>f = 1 / T</b>, avec f en Hz (s⁻¹) et T en s.</div>
     <p class="hint" style="margin:0 0 8px">Pour <b>chaque corde</b> : la pincer, faire une acquisition, mesurer la période T au réticule, calculer f = 1/T, puis trouver la note la plus proche dans l'annexe.</p>
     <table class="cordes">
-      <thead><tr><th>Corde</th><th>T (ms)</th><th>f (Hz)</th><th>Note</th><th>Octave</th><th></th></tr></thead>
+      <thead><tr><th>Corde</th><th>T (ms)</th><th>f (Hz)</th><th>Note</th><th>Octave</th></tr></thead>
       <tbody id="cordes"></tbody>
     </table>
-    <div class="row" style="margin-top:8px"><span class="status" id="cordesScore"></span><span class="spacer"></span><button id="check1" class="primary">Vérifier</button></div>
-    <div class="msg" id="msg1"></div>
-    <h3>4. Que constate-t-on quand on passe de la corde n°6 (la plus grosse) à la corde n°1 (la plus fine) ?</h3>
+    <h3>Que constate-t-on quand on passe de la corde n°6 (la plus grosse) à la corde n°1 (la plus fine) ?</h3>
     <textarea id="q4" placeholder="Ta réponse…"></textarea>
+    <h3>En musique, plutôt que de parler de <b>fréquence</b>, on parle de <b>hauteur</b> : le son le plus haut est celui de plus haute fréquence. On peut dire également qu'il est plus aigu. Quelle est la corde qui émet le son le plus haut ?</h3>
+    <textarea id="q5" placeholder="Ta réponse…"></textarea>
   </section>
 </div>
 </div>
@@ -274,18 +271,17 @@ header .savebar{margin-top:10px}
 <div class="col">
   <section>
     <h2>Fichier « sons musicaux »</h2>
-    <p class="hint" style="margin-top:0">Les deux diapasons jouent des <b>sons purs</b> de hauteurs différentes. La flûte et le saxo alto jouent des <b>sons complexes</b> de même hauteur.</p>
+    <p class="hint" style="margin-top:0">Les diapasons jouent des sons qualifiés de <b>purs</b>, la flûte et le saxo alto des sons qualifiés de <b>complexes</b>.</p>
     <div class="listen" style="margin:8px 0 14px">
-      <button data-play="d1">🔊 Diapason 1</button>
-      <button data-play="d2">🔊 Diapason 2</button>
-      <button data-play="fl">🔊 Flûte</button>
-      <button data-play="sx">🔊 Saxo alto</button>
+      <button data-play="d1" data-img="d1">🔊 Diapason 1</button>
+      <button data-play="d2" data-img="d2">🔊 Diapason 2</button>
+      <button data-play="fl" data-img="fl">🔊 Flûte</button>
+      <button data-play="sx" data-img="sx">🔊 Saxo alto</button>
     </div>
+    <div id="instrTip" aria-hidden="true"></div>
     <div id="wins"></div>
     <div class="row">
       <span class="status">Les quatre fenêtres ont la même échelle de temps ; le zoom et le décalage agissent sur les quatre.</span>
-      <span class="spacer"></span>
-      <button id="newnote">🎲 Autre note pour la flûte et le saxo</button>
     </div>
   </section>
 </div>
@@ -297,23 +293,18 @@ header .savebar{margin-top:10px}
   </section>
   <section>
     <h2>Questions</h2>
-    <h3 style="margin-top:0">a. Son pur ou son complexe : comment les distinguer ?</h3>
+    <h3 style="margin-top:0">a. Son pur ou son complexe : expliquer ce qui différencie le signal d'un son pur de celui d'un son complexe.</h3>
     <textarea id="qa" placeholder="Ta réponse…"></textarea>
-    <h3>b. À quelle particularité des courbes le timbre est-il lié ?</h3>
+    <h3>b. Période, fréquence et note jouée par chaque instrument</h3>
+    <table class="cordes">
+      <thead><tr><th>Instrument</th><th>T (ms)</th><th>f (Hz)</th><th>Note</th><th>Octave</th></tr></thead>
+      <tbody id="ans2"></tbody>
+    </table>
+    <h3>c. Quels instruments jouent la même note ? Justifier à l'aide du tableau.</h3>
+    <textarea id="qc" placeholder="Ta réponse…"></textarea>
+    <div class="def" style="margin-top:14px">Deux personnes (ou deux instruments) peuvent chanter (ou jouer) la même note. Pourtant, l'oreille parvient à faire la distinction : c'est le <b>timbre</b> du son.</div>
+    <h3 style="margin-top:8px">d. Ces instruments jouent la même note, et pourtant on les distingue. À quelle particularité de leurs courbes le timbre est-il lié ?</h3>
     <textarea id="qb" placeholder="Ta réponse…"></textarea>
-    <h3>c. Période, fréquence et note jouée par la flûte</h3>
-    <div class="ans" id="ans2"></div>
-    <div class="row" style="margin-top:8px"><span class="spacer"></span><button id="check2" class="primary">Vérifier</button></div>
-    <div class="msg" id="msg2"></div>
-  </section>
-  <section>
-    <h2>Pour aller plus loin : le spectre</h2>
-    <div class="row">
-      <label for="specsel">Instrument :</label>
-      <select id="specsel"><option value="d1">Diapason 1</option><option value="d2">Diapason 2</option><option value="fl" selected>Flûte</option><option value="sx">Saxo alto</option></select>
-    </div>
-    <canvas id="spec" style="margin-top:8px"></canvas>
-    <p class="hint">Un son pur ne contient qu'une seule fréquence. Un son complexe est la somme d'un <b>fondamental</b> (fréquence f, qui fixe la hauteur) et d'<b>harmoniques</b> (2f, 3f, 4f…) dont les amplitudes relatives font le timbre.</p>
   </section>
 </div>
 </div>
@@ -371,7 +362,22 @@ function sample(f, harm, amp, noise, dt, n, t0 = 0, clip = Infinity) {
 
 // Audio
 let actx = null;
+function playFork(f, dur) {
+  // Diapason frappé : attaque franche, partiel de flexion à ≈ 6,27 f qui s'éteint en quelques centièmes de seconde
+  // (le « ting » métallique), puis un son quasi pur qui décroît lentement.
+  actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+  const sr = actx.sampleRate, n = Math.round(dur * sr), buf = actx.createBuffer(1, n, sr), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) {
+    const t = i / sr;
+    const fund = Math.exp(-t / 2.2) * Math.sin(2 * Math.PI * f * t);
+    const clang = 0.35 * Math.exp(-t / 0.035) * Math.sin(2 * Math.PI * 6.27 * f * t);
+    const env = Math.min(1, t / 0.002) * Math.min(1, (dur - t) / 0.3);
+    d[i] = 0.35 * env * (fund + clang);
+  }
+  const src = actx.createBufferSource(); src.buffer = buf; src.connect(actx.destination); src.start();
+}
 function playHarm(f, harm, dur, kind) {
+  if (kind === 'fork') return playFork(f, dur);
   actx = actx || new (window.AudioContext || window.webkitAudioContext)();
   const sr = actx.sampleRate, n = Math.round(dur * sr), buf = actx.createBuffer(1, n, sr), d = buf.getChannelData(0);
   const pk = peakOf(f, harm);
@@ -529,51 +535,6 @@ class Scope {
   }
 }
 
-// ================= Formulaires de réponse =================
-function buildAnswer(host, prefix, noteLabel) {
-  host.innerHTML = `
-    <label for="${prefix}T">Période T (ms)</label><input class="cell" id="${prefix}T" inputmode="decimal">
-    <label for="${prefix}f">Fréquence f (Hz)</label><input class="cell" id="${prefix}f" inputmode="decimal">
-    <label>${noteLabel}</label>
-    <div class="row"><select id="${prefix}k"><option value="">note…</option>${NOTES.map((n, k) => `<option value="${k}">${n}</option>`).join('')}</select>
-    <select id="${prefix}o"><option value="">octave…</option>${OCTS.map(o => `<option>${o}</option>`).join('')}</select></div>`;
-}
-function setCls(el, c) { el.classList.remove('ok', 'bad', 'warn'); if (c) el.classList.add(c); }
-function checkFields($, fTrue) {
-  const T = parse($('T').value), f = parse($('f').value), k = $('k').value, o = $('o').value, notes = [];
-  const Ttrue = 1000 / fTrue;
-  if (!isNaN(T)) {
-    const e = Math.abs(T - Ttrue) / Ttrue;
-    if (e < 0.03) setCls($('T'), 'ok');
-    else if (e < 0.08) { setCls($('T'), 'warn'); notes.push('<span class="o">T est un peu imprécise : mesure la durée de plusieurs périodes et divise.</span>'); }
-    else if (Math.abs(T / Ttrue - Math.round(T / Ttrue)) < 0.06 && Math.round(T / Ttrue) >= 2) { setCls($('T'), 'bad'); notes.push(`<span class="r">Tu as mesuré ${Math.round(T / Ttrue)} périodes : pense à diviser par le nombre de périodes.</span>`); }
-    else { setCls($('T'), 'bad'); notes.push('<span class="r">Période incorrecte : repère deux points identiques consécutifs du signal (même valeur, même sens de variation).</span>'); }
-  } else setCls($('T'), null);
-  if (!isNaN(f) && T > 0) {
-    const fExp = 1000 / T, ratio = f / fExp;
-    if (Math.abs(ratio - 1) < 0.02) setCls($('f'), 'ok');
-    else { setCls($('f'), 'bad');
-      notes.push('<span class="r">' + (Math.abs(ratio * 1000 - 1) < 0.03 ? 'Erreur d\'un facteur 1000 : T doit être convertie en secondes avant de calculer f = 1/T.'
-        : Math.abs(ratio - 1000 / (T * T)) < 0.03 * ratio ? 'f = 1 / T et non T.' : 'Calcul de f = 1/T à revoir (T en s).') + '</span>'); }
-  } else setCls($('f'), null);
-  if (k !== '' && o !== '') {
-    const good = nearestNote(fTrue), mine = !isNaN(f) && f > 0 ? nearestNote(f) : null;
-    const isGood = +k === good.k && +o === good.o;
-    setCls($('k'), isGood ? 'ok' : 'bad'); setCls($('o'), isGood ? 'ok' : 'bad');
-    if (!isGood) {
-      if (mine && +k === mine.k && +o === mine.o) notes.push('<span class="o">La note correspond bien à ta fréquence, mais ta fréquence est fausse.</span>');
-      else if (+k === good.k) notes.push('<span class="r">Bonne note mais mauvaise octave : regarde bien la colonne du tableau.</span>');
-      else notes.push('<span class="r">Note incorrecte : cherche dans le tableau la fréquence la plus proche de ta valeur de f.</span>');
-    }
-  }
-  const empty = isNaN(T) && isNaN(f) && (k === '' || o === '');
-  return { notes, empty, allOk: !empty && !notes.length && !isNaN(T) && !isNaN(f) && k !== '' && o !== '' };
-}
-function checkAnswer(prefix, fTrue, msgEl) {
-  const r = checkFields(id => document.getElementById(prefix + id), fTrue);
-  msgEl.innerHTML = r.notes.length ? r.notes.join('<br>') : (r.empty ? '' : '<span class="g">✓ Bravo, tout est correct !</span>');
-}
-
 // ================= PARTIE I : guitare =================
 const STRINGS = [ // numéro, k, octave (convention française)
   { n: 6, k: 4, o: 1, w: 3.4 }, { n: 5, k: 9, o: 1, w: 2.9 }, { n: 4, k: 2, o: 2, w: 2.4 },
@@ -655,34 +616,16 @@ const ROLES = [
   const opts = ROLES.map((r, i) => i).sort(() => Math.random() - .5);
   document.getElementById('roles').innerHTML = ROLES.map((r, i) => `<tr><td>${r[0]}</td><td><select data-i="${i}"><option value="">— choisir —</option>${opts.map(j => `<option value="${j}">${ROLES[j][1]}</option>`).join('')}</select></td></tr>`).join('');
 })();
-document.getElementById('checkroles').onclick = () => {
-  let ok = 0, filled = 0;
-  document.querySelectorAll('#roles select').forEach(s => { if (s.value === '') { setCls(s, null); return; } filled++; const g = s.value === s.dataset.i; ok += g; setCls(s, g ? 'ok' : 'bad'); });
-  document.getElementById('rolesmsg').innerHTML = !filled ? '' : ok === 4 ? '<span class="g">✓ Parfait ! Le signal sonore devient une tension électrique, amplifiée, puis numérisée.</span>' : `<span class="r">${ok} / 4 correct${ok > 1 ? 's' : ''}.</span>`;
-};
 // Tableau des 6 cordes
 document.getElementById('cordes').innerHTML = STRINGS.map(st => `<tr data-n="${st.n}"><td>n°${st.n}</td>
   <td><input class="cell" id="c${st.n}T" inputmode="decimal"></td><td><input class="cell" id="c${st.n}f" inputmode="decimal"></td>
   <td><select id="c${st.n}k"><option value="">…</option>${NOTES.map((n, k) => `<option value="${k}">${n}</option>`).join('')}</select></td>
-  <td><select id="c${st.n}o"><option value="">…</option>${OCTS.map(o => `<option>${o}</option>`).join('')}</select></td><td class="st"></td></tr>`).join('');
-document.getElementById('check1').onclick = () => {
-  const m = document.getElementById('msg1'), out = []; let ok = 0;
-  STRINGS.forEach(st => {
-    const r = checkFields(id => document.getElementById('c' + st.n + id), st.f);
-    const cell = document.querySelector(`#cordes tr[data-n="${st.n}"] td.st`);
-    cell.innerHTML = r.empty ? '' : r.allOk ? '<span style="color:var(--ok)">✓</span>' : r.notes.length ? '<span style="color:var(--bad)">✗</span>' : '';
-    if (r.allOk) ok++;
-    if (r.notes.length) out.push(`<div><b>Corde n°${st.n} :</b> ${r.notes.join(' ')}</div>`);
-  });
-  document.getElementById('cordesScore').textContent = `${ok} / 6 cordes entièrement correctes`;
-  m.innerHTML = out.join('') || (ok === 6 ? '<span class="g">✓ Bravo, les six cordes sont correctes !</span>' : '');
-};
-
+  <td><select id="c${st.n}o"><option value="">…</option>${OCTS.map(o => `<option>${o}</option>`).join('')}</select></td></tr>`).join('');
 // ================= PARTIE II : sons musicaux =================
 const DT2 = 10e-6, TMAX2 = 0.03, N2 = Math.round(TMAX2 / DT2) + 1;
 const INSTR = {
   d1: { name: 'Diapason 1', unit: 'V', amp: 0.9, range: [-1.2, 1.2], color: '--c1', kind: 'fork', f: 440, harm: [{ a: 1, ph: 0 }] },
-  d2: { name: 'Diapason 2', unit: 'V', amp: 2.7, range: [-3, 3], color: '--c2', kind: 'fork', f: 320, harm: [{ a: 1, ph: 0 }] },
+  d2: { name: 'Diapason 2', unit: 'V', amp: 2.7, range: [-3, 3], color: '--c2', kind: 'fork', f: noteFreq(4, 3) /* mi 3 = 329,63 Hz */, harm: [{ a: 1, ph: 0 }] },
   fl: { name: 'Flûte', unit: 'mV', amp: 720, range: [-800, 800], color: '--c3', kind: 'wind', f: 440,
         harm: [{ a: 1, ph: 0 }, { a: .45, ph: 1.9 }, { a: .3, ph: 4.2 }, { a: .1, ph: .7 }, { a: .06, ph: 2.6 }, { a: .03, ph: 1.1 }] },
   sx: { name: 'Saxo alto', unit: 'mV', amp: 450, range: [-500, 500], color: '--c4', kind: 'wind', f: 440,
@@ -692,7 +635,7 @@ const scopes2 = {};
   const host = document.getElementById('wins');
   Object.entries(INSTR).forEach(([id, ins], i) => {
     const w = document.createElement('div'); w.className = 'win';
-    w.innerHTML = `<div class="wt"><b style="background:var(${ins.color})"></b>Fenêtre n°${i + 1} : ${ins.name} (${ins.unit})</div><div></div>`;
+    w.innerHTML = `<div class="wt" data-img="${id}"><b style="background:var(${ins.color})"></b>Fenêtre n°${i + 1} : ${ins.name} (${ins.unit})</div><div></div>`;
     host.appendChild(w);
     scopes2[id] = new Scope(w.lastElementChild, { height: 200, ymin: ins.range[0], ymax: ins.range[1], yunit: ins.unit, color: ins.color, tmax: TMAX2, view: [0, 0.015], toolbar: i === 0 });
   });
@@ -701,37 +644,58 @@ const scopes2 = {};
 function fillScopes2() {
   Object.entries(INSTR).forEach(([id, ins]) => scopes2[id].setData(sample(ins.f, ins.harm, ins.amp, ins.amp * 0.012, DT2, N2, 0.37 / ins.f), DT2));
 }
-document.querySelectorAll('[data-play]').forEach(b => b.onclick = () => { const i = INSTR[b.dataset.play]; playHarm(i.f, i.harm, 1.6, i.kind); });
-document.getElementById('newnote').onclick = () => {
-  const cands = []; for (let o = 2; o <= 4; o++) for (let k = 0; k < 12; k++) { const f = noteFreq(k, o); if (f >= 230 && f <= 800 && Math.abs(f - INSTR.fl.f) > 1) cands.push(f); }
-  INSTR.fl.f = INSTR.sx.f = cands[Math.floor(Math.random() * cands.length)];
-  fillScopes2(); drawSpec(); persist();
-  ['f', 'T', 'k', 'o'].forEach(x => setCls(document.getElementById('fl' + x), null)); document.getElementById('msg2').innerHTML = '';
-};
-buildAnswer(document.getElementById('ans2'), 'fl', 'Note jouée par la flûte');
-document.getElementById('check2').onclick = () => checkAnswer('fl', INSTR.fl.f, document.getElementById('msg2'));
+document.querySelectorAll('[data-play]').forEach(b => b.onclick = () => { const i = INSTR[b.dataset.play]; playHarm(i.f, i.harm, i.kind === 'fork' ? 4 : 1.6, i.kind); });
+document.getElementById('ans2').innerHTML = Object.entries(INSTR).map(([id, ins]) => `<tr><td>${ins.name}</td>
+  <td><input class="cell" id="${id}T" inputmode="decimal"></td><td><input class="cell" id="${id}f" inputmode="decimal"></td>
+  <td><select id="${id}k"><option value="">…</option>${NOTES.map((n, k) => `<option value="${k}">${n}</option>`).join('')}</select></td>
+  <td><select id="${id}o"><option value="">…</option>${OCTS.map(o => `<option>${o}</option>`).join('')}</select></td></tr>`).join('');
 
-// Spectre
-const spec = document.getElementById('spec');
-function drawSpec() {
-  const r = spec.getBoundingClientRect(); if (!r.width) return;
-  const dpr = window.devicePixelRatio || 1; spec.width = r.width * dpr; spec.height = r.height * dpr;
-  const c = spec.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const W = r.width, H = r.height, M = { l: 46, r: 14, t: 14, b: 36 }, ins = INSTR[document.getElementById('specsel').value];
-  const fmax = 6000, amax = Math.max(...ins.harm.map(h => h.a));
-  c.clearRect(0, 0, W, H); c.font = '12px system-ui,sans-serif'; c.strokeStyle = css('--grid'); c.fillStyle = css('--axis');
-  const X = f => M.l + f / fmax * (W - M.l - M.r), Y = a => H - M.b - a * (H - M.t - M.b);
-  c.textAlign = 'center'; c.textBaseline = 'top';
-  for (let f = 0; f <= fmax; f += 1000) { c.beginPath(); c.moveTo(X(f) + .5, M.t); c.lineTo(X(f) + .5, H - M.b); c.stroke(); c.fillText(f, X(f), H - M.b + 5); }
-  c.textAlign = 'right'; c.textBaseline = 'middle';
-  for (let a = 0; a <= 1.001; a += .25) { c.beginPath(); c.moveTo(M.l, Y(a) + .5); c.lineTo(W - M.r, Y(a) + .5); c.stroke(); c.fillText(fr(a, 2), M.l - 6, Y(a)); }
-  c.strokeStyle = css('--axis'); c.strokeRect(M.l + .5, M.t + .5, W - M.l - M.r, H - M.t - M.b);
-  c.textAlign = 'right'; c.textBaseline = 'bottom'; c.fillText('f (Hz)', W - M.r, H - 1);
-  c.save(); c.translate(12, (M.t + H - M.b) / 2); c.rotate(-Math.PI / 2); c.textAlign = 'center'; c.fillText('amplitude relative', 0, 0); c.restore();
-  c.fillStyle = css(ins.color);
-  ins.harm.forEach((h, n) => { const f = (n + 1) * ins.f; if (f > fmax || !h.a) return; const a = h.a / amax; c.fillRect(X(f) - 3, Y(a), 6, Y(0) - Y(a)); });
+
+// ================= Images des instruments (au survol) =================
+const METAL = `<linearGradient id="gMetal" x1="0" x2="1"><stop offset="0" stop-color="#8b95a3"/><stop offset=".45" stop-color="#eef2f6"/><stop offset="1" stop-color="#7c8694"/></linearGradient>`;
+const BRASS = `<linearGradient id="gBrass" x1="0" x2="1"><stop offset="0" stop-color="#a8761c"/><stop offset=".45" stop-color="#f6d27a"/><stop offset="1" stop-color="#9a6a14"/></linearGradient>`;
+function forkSVG(len) { // branches plus longues = son plus grave
+  const top = 150 - len;
+  return `<svg viewBox="0 0 160 230"><defs>${METAL}</defs>
+    <path d="M58 ${top} L58 150 Q58 172 80 172 Q102 172 102 150 L102 ${top}" fill="none" stroke="url(#gMetal)" stroke-width="11" stroke-linecap="round"/>
+    <rect x="75" y="170" width="10" height="20" fill="url(#gMetal)"/>
+    <rect x="16" y="188" width="128" height="34" rx="3" fill="var(--wood)" stroke="var(--wood2)" stroke-width="2"/>
+    <rect x="16" y="188" width="128" height="6" fill="var(--wood2)" opacity=".5"/>
+    <ellipse cx="80" cy="207" rx="38" ry="7" fill="#2b1a0c"/></svg>`;
 }
-document.getElementById('specsel').onchange = drawSpec;
+const FLUTE_SVG = `<svg class="wide" viewBox="0 0 320 110"><defs><linearGradient id="gFl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7c8694"/><stop offset=".4" stop-color="#f3f6f9"/><stop offset="1" stop-color="#6f7987"/></linearGradient></defs>
+  <rect x="8" y="48" width="304" height="16" rx="8" fill="url(#gFl)" stroke="#5b6472" stroke-width="1"/>
+  <rect x="8" y="46" width="14" height="20" rx="4" fill="url(#gFl)" stroke="#5b6472"/>
+  <g fill="none" stroke="#5b6472" stroke-width="1.2"><line x1="96" y1="47" x2="96" y2="65"/><line x1="102" y1="47" x2="102" y2="65"/><line x1="260" y1="47" x2="260" y2="65"/></g>
+  <ellipse cx="54" cy="47" rx="15" ry="5" fill="url(#gFl)" stroke="#5b6472"/><ellipse cx="54" cy="46.5" rx="5" ry="2" fill="#1f2937"/>
+  <g fill="url(#gFl)" stroke="#5b6472" stroke-width="1.2">${[130,148,166,186,204,222,240,280,296].map(x => `<circle cx="${x}" cy="56" r="7"/><circle cx="${x}" cy="56" r="2.5" fill="#374151"/>`).join('')}</g>
+  <line x1="125" y1="70" x2="245" y2="70" stroke="#5b6472" stroke-width="2"/></svg>`;
+const SAXO_SVG = `<svg viewBox="0 0 170 250"><defs>${BRASS}</defs>
+  <path d="M74 40 Q70 18 46 16" fill="none" stroke="url(#gBrass)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M46 12 L22 14 L22 20 L46 21 Z" fill="#111827"/>
+  <path d="M74 40 L88 196 Q92 230 120 224 Q140 218 138 180 L136 140" fill="none" stroke="url(#gBrass)" stroke-width="20" stroke-linejoin="round"/>
+  <path d="M126 146 L146 146 L160 96 L110 96 Z" fill="url(#gBrass)"/>
+  <ellipse cx="135" cy="96" rx="25" ry="7" fill="#f6d27a" stroke="#9a6a14" stroke-width="1.5"/><ellipse cx="135" cy="96" rx="19" ry="4.5" fill="#3b2506"/>
+  <g fill="#fdf4d6" stroke="#9a6a14" stroke-width="1.5">${[[78,70],[80,92],[82,114],[84,140],[86,162],[88,184]].map(([x,y]) => `<circle cx="${x}" cy="${y}" r="5.5"/>`).join('')}</g>
+  <g fill="#fdf4d6" stroke="#9a6a14" stroke-width="1.2">${[[104,206],[124,212],[140,170]].map(([x,y]) => `<ellipse cx="${x}" cy="${y}" rx="6" ry="4"/>`).join('')}</g>
+  <path d="M90 60 Q66 66 70 80" fill="none" stroke="#9a6a14" stroke-width="2"/></svg>`;
+const IMGS = { d1: [forkSVG(80), 'Diapason 1'], d2: [forkSVG(110), 'Diapason 2'], fl: [FLUTE_SVG, 'Flûte traversière'], sx: [SAXO_SVG, 'Saxophone alto'] };
+(function instrHover() {
+  const tip = document.getElementById('instrTip');
+  const show = el => {
+    const [svg, name] = IMGS[el.dataset.img]; tip.innerHTML = svg + `<p>${name}</p>`;
+    const r = el.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
+    let x = Math.min(Math.max(8, r.left + r.width / 2 - tw / 2), innerWidth - tw - 8);
+    let y = r.bottom + 8; if (y + th > innerHeight - 8) y = r.top - th - 8;
+    tip.style.left = x + 'px'; tip.style.top = Math.max(8, y) + 'px'; tip.classList.add('on');
+  };
+  const hide = () => tip.classList.remove('on');
+  document.querySelectorAll('[data-img]').forEach(el => {
+    el.addEventListener('mouseenter', () => show(el)); el.addEventListener('mouseleave', hide);
+    el.addEventListener('focus', () => show(el)); el.addEventListener('blur', hide);
+  });
+  addEventListener('scroll', hide, { passive: true });
+})();
 
 // ================= Onglets & démarrage =================
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
@@ -739,7 +703,7 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('.page').forEach(p => p.classList.toggle('on', p.id === b.dataset.p));
   redrawAll();
 });
-function redrawAll() { scope1.draw(); Object.values(scopes2).forEach(s => s.draw()); drawSpec(); }
+function redrawAll() { scope1.draw(); Object.values(scopes2).forEach(s => s.draw()); }
 
 // ================= Sauvegarde =================
 function setupSave(KEY, APP, collect, apply) {
@@ -806,19 +770,19 @@ const setVal = (id, v) => { const el = document.getElementById(id); if (el && v 
 const ansKeys = p => ({ T: val(p + 'T'), f: val(p + 'f'), note: val(p + 'k'), octave: val(p + 'o') });
 const setAns = (p, a) => { if (!a) return; setVal(p + 'T', a.T); setVal(p + 'f', a.f); setVal(p + 'k', a.note); setVal(p + 'o', a.octave); };
 saver = setupSave('ae08-caracteristiques-son', 'AE08', () => ({
-  app: 'AE08', version: 2, savedAt: new Date().toISOString(), eleve: val('eleve'),
+  app: 'AE08', version: 3, savedAt: new Date().toISOString(), eleve: val('eleve'),
   roles: [...document.querySelectorAll('#roles select')].map(s => s.value),
-  cordes: Object.fromEntries(STRINGS.map(st => [st.n, ansKeys('c' + st.n)])), question4: val('q4'),
-  questionA: val('qa'), questionB: val('qb'),
-  flute: Object.assign(ansKeys('fl'), { frequenceSimulee: INSTR.fl.f })
+  cordes: Object.fromEntries(STRINGS.map(st => [st.n, ansKeys('c' + st.n)])), question4: val('q4'), question5: val('q5'),
+  questionA: val('qa'), questionC: val('qc'), questionB: val('qb'),
+  instruments: Object.fromEntries(Object.keys(INSTR).map(id => [id, ansKeys(id)]))
 }), d => {
   setVal('eleve', d.eleve);
   if (Array.isArray(d.roles)) document.querySelectorAll('#roles select').forEach((s, i) => { if (d.roles[i] != null) s.value = d.roles[i]; });
   if (d.cordes) STRINGS.forEach(st => setAns('c' + st.n, d.cordes[st.n]));
   else if (d.guitare && d.guitare.corde != null) setAns('c' + d.guitare.corde, d.guitare); // ancien format
-  setVal('q4', d.question4); setVal('qa', d.questionA); setVal('qb', d.questionB); setAns('fl', d.flute);
-  if (d.flute && d.flute.frequenceSimulee) INSTR.fl.f = INSTR.sx.f = d.flute.frequenceSimulee;
-  fillScopes2(); drawSpec();
+  setVal('q4', d.question4); setVal('q5', d.question5); setVal('qa', d.questionA); setVal('qb', d.questionB); setVal('qc', d.questionC);
+  if (d.instruments) Object.keys(INSTR).forEach(id => setAns(id, d.instruments[id]));
+  else setAns('fl', d.flute); // ancien format
 });
 fillScopes2();
 window.addEventListener('resize', redrawAll);
