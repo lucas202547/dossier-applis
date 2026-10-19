@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulateur de circuits — Lois fondamentales</title>
+<style>
+:root{--bg:#eef1f6;--panel:#fff;--ink:#1d2433;--muted:#5b6475;--line:#d7dce5;--accent:#2563eb;--danger:#dc2626;--ok:#15803d}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 14px;background:#1e293b;color:#fff}
+header h1{font-size:16px;margin:0 10px 0 0;font-weight:650}
+header .sp{flex:1}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:7px;padding:6px 10px}
+button:hover{border-color:var(--accent)}
+button.danger{color:var(--danger)}
+header button{background:#334155;color:#fff;border-color:#475569}
+header button:hover{border-color:#93c5fd}
+header label{display:flex;gap:5px;align-items:center;font-size:13px;cursor:pointer}
+.layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:10px;padding:10px}
+aside{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.card h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px}
+.palette{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.palette button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 4px;font-size:12px}
+.palette svg{width:60px;height:26px}
+.hint{color:var(--muted);font-size:12.5px;line-height:1.45;margin:8px 0 0;padding-left:16px}
+.hint li{margin:2px 0}
+#stage{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+#svg{display:block;width:100%;height:auto;touch-action:none;user-select:none;-webkit-user-select:none}
+#status{margin:6px 2px 10px;font-size:13px;min-height:20px;display:flex;flex-wrap:wrap;gap:6px}
+#status span{padding:2px 8px;border-radius:6px;background:#fee2e2;color:#991b1b}
+#status span.okm{background:#dcfce7;color:#166534}
+#status span.warn{background:#fef3c7;color:#92400e}
+label.f{display:block;margin:6px 0;font-size:13px}
+label.f input,label.f select{display:block;width:100%;margin-top:3px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;font:inherit}
+label.f input[type=range]{padding:0}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.state{font-size:13px;margin:6px 0}
+.state b.bad{color:var(--danger)}
+.vals{background:#eff6ff;border-radius:6px;padding:6px 8px;font-size:13px;margin-top:8px;color:#1e40af}
+.tabs nav{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.tabs nav button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tp h3{margin:14px 0 4px;font-size:15px}
+.tp h3:first-child{margin-top:0}
+.tp p,.tp li{line-height:1.5}
+.tp ol,.tp ul{margin:4px 0;padding-left:22px}
+.tp .q{background:#f8fafc;border-left:3px solid var(--accent);padding:6px 10px;margin:6px 0;border-radius:0 6px 6px 0}
+.tp .load{margin:4px 6px 4px 0}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left}
+td input{width:100%;border:1px solid var(--line);border-radius:5px;padding:3px 5px;font:inherit}
+.empty{color:var(--muted);font-style:italic}
+/* SVG */
+.comp *{pointer-events:none}
+.comp .hitc{pointer-events:all;cursor:grab}
+.wire .hit{stroke:transparent;stroke-width:14;cursor:pointer}
+.wire .w{stroke:#1f2937;stroke-width:3;stroke-linecap:round}
+.wire.sel .w{stroke:var(--accent);stroke-width:4}
+.flow{stroke:#f59e0b;stroke-width:5;stroke-linecap:round;stroke-dasharray:0.1 16;pointer-events:none}
+.sym{stroke:#1f2937;stroke-width:3;fill:none;stroke-linecap:round}
+.lbl{font-size:13px;font-weight:700;fill:#111827}
+.lbl2{font-size:11.5px;fill:#475569}
+.lbl3{font-size:11.5px;fill:#1d4ed8;font-weight:600}
+.bad{fill:#dc2626}
+.meter{cursor:grab}
+.mpos{cursor:pointer}
+.mbtn{cursor:pointer}
+.probe{cursor:grab}
+@media (max-width:900px){.layout{grid-template-columns:1fr}aside{display:grid;grid-template-columns:1fr 1fr}}
+@media (max-width:560px){aside{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚡ Simulateur de circuits</h1>
+  <button id="bMeter">+ Multimètre</button>
+  <button id="bClear">Vider la plaquette</button>
+  <button id="bExport">Exporter</button>
+  <button id="bImport">Importer</button>
+  <input type="file" id="fImport" accept=".json,application/json" hidden>
+  <span class="sp"></span>
+  <label><input type="checkbox" id="oFlow" checked> Courant animé</label>
+  <label><input type="checkbox" id="oTol" checked> Tolérance ±5 %</label>
+  <label><input type="checkbox" id="oVals"> Valeurs (prof)</label>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="card">
+      <h2>Composants</h2>
+      <div class="palette">
+        <button data-add="gen"><svg viewBox="0 0 80 30"><line x1="0" y1="15" x2="22" y2="15" stroke="#1f2937" stroke-width="3"/><circle cx="40" cy="15" r="12" fill="#fff" stroke="#1f2937" stroke-width="3"/><text x="40" y="20" text-anchor="middle" font-size="13" font-weight="700">G</text><line x1="58" y1="15" x2="80" y2="15" stroke="#1f2937" stroke-width="3"/></svg>Générateur</button>
+        <button data-add="pile"><svg viewBox="0 0 80 30"><line x1="0" y1="15" x2="36" y2="15" stroke="#1f2937" stroke-width="3"/><line x1="36" y1="3" x2="36" y2="27" stroke="#1f2937" stroke-width="2"/><line x1="44" y1="9" x2="44" y2="21" stroke="#1f2937" stroke-width="5"/><line x1="44" y1="15" x2="80" y2="15" stroke="#1f2937" stroke-width="3"/></svg>Pile</button>
+        <button data-add="res"><svg viewBox="0 0 80 30"><line x1="0" y1="15" x2="22" y2="15" stroke="#1f2937" stroke-width="3"/><rect x="22" y="7" width="36" height="16" fill="#fff" stroke="#1f2937" stroke-width="3"/><line x1="58" y1="15" x2="80" y2="15" stroke="#1f2937" stroke-width="3"/></svg>Cond. ohmique</button>
+        <button data-add="lamp"><svg viewBox="0 0 80 30"><line x1="0" y1="15" x2="27" y2="15" stroke="#1f2937" stroke-width="3"/><circle cx="40" cy="15" r="12" fill="#fff" stroke="#1f2937" stroke-width="3"/><path d="M32 7 48 23M48 7 32 23" stroke="#1f2937" stroke-width="2.5"/><line x1="53" y1="15" x2="80" y2="15" stroke="#1f2937" stroke-width="3"/></svg>Lampe</button>
+        <button data-add="sw"><svg viewBox="0 0 80 30"><line x1="0" y1="20" x2="24" y2="20" stroke="#1f2937" stroke-width="3"/><line x1="24" y1="20" x2="54" y2="6" stroke="#1f2937" stroke-width="3"/><line x1="56" y1="20" x2="80" y2="20" stroke="#1f2937" stroke-width="3"/></svg>Interrupteur</button>
+        <button data-add="fuse"><svg viewBox="0 0 80 30"><line x1="0" y1="15" x2="80" y2="15" stroke="#1f2937" stroke-width="3"/><rect x="22" y="8" width="36" height="14" fill="none" stroke="#1f2937" stroke-width="3"/></svg>Fusible</button>
+      </div>
+      <ul class="hint">
+        <li><b>Fil</b> : glisser d'un point de la grille à un autre.</li>
+        <li><b>Déplacer</b> : glisser un composant (les fils suivent).</li>
+        <li><b>Pivoter</b> : double-clic ou touche R.</li>
+        <li><b>Effacer</b> : sélectionner puis Suppr.</li>
+        <li><b>Multimètre</b> : choisir le calibre sur le sélecteur, puis poser les pointes rouge (V Ω A) et noire (COM) sur des points du circuit.</li>
+      </ul>
+    </div>
+    <div class="card" id="props"></div>
+  </aside>
+
+  <main>
+    <div id="stage"><svg id="svg" viewBox="0 0 1440 800" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    <div id="status"></div>
+    <div class="card tabs">
+      <nav>
+        <button data-tab="tp" class="on">Consignes du TP</button>
+        <button data-tab="rel">Relevés de mesures <span id="relCount"></span></button>
+      </nav>
+      <div id="tab-tp" class="tp">
+        <p><i>Sur un forum de bricolage, un internaute veut fabriquer une guirlande de 10 ampoules. En les mettant en série, la lumière est faible. Le modérateur lui conseille de les mettre en parallèle « en faisant attention au courant sortant du générateur ». Aide-le à comprendre !</i></p>
+
+        <h3>I. La loi des mailles (additivité des tensions)</h3>
+        <button class="load" data-preset="I">Charger le montage I</button>
+        <ul>
+          <li>Le générateur est réglé sur 6,0 V, R<sub>1</sub> et R<sub>2</sub> sont en série.</li>
+          <li>Mets le multimètre sur un calibre <b>V⎓</b> adapté. Pour mesurer U<sub>AB</sub>, la pointe <b>rouge (V)</b> va en A (pointe de la flèche tension) et la pointe <b>noire (COM)</b> en B.</li>
+          <li>Mesure successivement U<sub>G</sub>, U<sub>R1</sub> et U<sub>R2</sub>. Utilise « Noter » sur le multimètre pour garder chaque valeur.</li>
+        </ul>
+        <div class="q">1. Quelle(s) relation(s) peut-on écrire entre ces différentes valeurs ?<br>2. Compléter : « Dans une maille, la … algébrique des tensions est toujours nulle. »<br>3. Relever la tension aux bornes d'un fil : U<sub>fil</sub> ≈ …</div>
+
+        <h3>II. La loi des nœuds</h3>
+        <button class="load" data-preset="II">Charger le montage II</button>
+        <ul>
+          <li>Pour mesurer une intensité, il faut <b>ouvrir</b> le circuit : sélectionne le fil de la branche concernée et supprime-le, puis place l'ampèremètre <b>à sa place, en série</b>.</li>
+          <li>Mets le multimètre sur un calibre <b>A⎓</b>. Commence par le plus grand calibre, puis descends.</li>
+          <li>Mesure I<sub>1</sub>, I<sub>2</sub>, I<sub>3</sub> et I<sub>4</sub> (les nœuds A et B sont repérés par des points noirs).</li>
+        </ul>
+        <div class="q">4. Quelle relation peut-on écrire entre ces différentes valeurs ?<br>5. Compléter : « La somme des … des courants qui entrent par un … est égale à la somme des intensités des … qui … du même nœud. »</div>
+
+        <h3>III. Application : aidons l'internaute</h3>
+        <button class="load" data-preset="IIIs">Guirlande en série</button>
+        <button class="load" data-preset="IIIp">Guirlande en dérivation</button>
+        <ul>
+          <li>Les 10 lampes (12 V – 2,4 W) sont alimentées par un générateur réglé sur 12 V, protégé par un fusible.</li>
+          <li>Compare l'éclat des lampes dans les deux montages. Mesure la tension aux bornes d'une lampe et l'intensité dans la branche principale.</li>
+          <li>Sélectionne une lampe et clique sur « Simuler une lampe grillée » : que se passe-t-il dans chaque montage ?</li>
+          <li>Montage en dérivation : sélectionne le fusible et remplace son calibre de 3 A par 1 A. Explique.</li>
+        </ul>
+        <div class="q">Plus on place d'ampoules <i>en série</i>, plus l'intensité lumineuse de chacune … La tension délivrée par le générateur est … sur chacune des ampoules. Si une ampoule grille, tout le circuit est …<br>
+        <i>En dérivation</i>, chaque ampoule est soumise à la tension … Chaque ampoule ajoutée crée un … : le courant fourni par le générateur …</div>
+      </div>
+      <div id="tab-rel" hidden>
+        <table>
+          <thead><tr><th style="width:34%">Grandeur</th><th>Valeur</th><th>Appareil</th><th></th></tr></thead>
+          <tbody id="relBody"></tbody>
+        </table>
+        <div class="row"><button id="bCopy">Copier le tableau</button><button id="bRelClear" class="danger">Effacer les relevés</button></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const svg = $('#svg');
+const CELL = 40, COLS = 36, ROWS = 20, W = COLS * CELL, H = ROWS * CELL;
+const DIRS = [[1,0],[0,1],[-1,0],[0,-1]];
+const KEY = 'simCircuitsTP.v1';
+
+/* Calibres du multimètre (3 ½ digits : 1999 points) */
+const CAL = [
+  {lab:'OFF', q:'OFF'},
+  {lab:'200mV', q:'V', unit:'mV', scale:1e3, dec:1},
+  {lab:'2V',    q:'V', unit:'V',  scale:1,   dec:3},
+  {lab:'20V',   q:'V', unit:'V',  scale:1,   dec:2},
+  {lab:'200V',  q:'V', unit:'V',  scale:1,   dec:1},
+  {lab:'2mA',   q:'A', unit:'mA', scale:1e3, dec:3, shunt:10,   fused:true},
+  {lab:'20mA',  q:'A', unit:'mA', scale:1e3, dec:2, shunt:1,    fused:true},
+  {lab:'200mA', q:'A', unit:'mA', scale:1e3, dec:1, shunt:0.1,  fused:true},
+  {lab:'10A',   q:'A', unit:'A',  scale:1,   dec:2, shunt:0.01},
+  {lab:'200Ω',  q:'O', unit:'Ω',  scale:1,   dec:1, it:1e-3},
+  {lab:'2kΩ',   q:'O', unit:'kΩ', scale:1e-3,dec:3, it:1e-3},
+  {lab:'20kΩ',  q:'O', unit:'kΩ', scale:1e-3,dec:2, it:1e-4},
+  {lab:'2MΩ',   q:'O', unit:'MΩ', scale:1e-6,dec:3, it:1e-6},
+];
+const QCOL = {OFF:'#cbd5e1', V:'#fde047', A:'#93c5fd', O:'#86efac'};
+const METER_FUSE = 0.4; // A, fusible de l'entrée mA
+
+const TYPES = {
+  gen:  {name:'Générateur de tension', prefix:'G', def:()=>({E:6, Imax:3})},
+  pile: {name:'Pile', prefix:'P', def:()=>({E:4.5, r:1.5})},
+  res:  {name:'Conducteur ohmique', prefix:'R', def:()=>({R:100})},
+  lamp: {name:'Lampe', prefix:'L', def:()=>({Un:6, Pn:1.2})},
+  sw:   {name:'Interrupteur', prefix:'K', def:()=>({closed:true})},
+  fuse: {name:'Fusible', prefix:'F', def:()=>({Ic:1})},
+};
+
+const opts = {flow:true, tol:true, vals:false};
+let S = {comps:[], wires:[], meters:[], releves:[]};
+let uid = 1, sel = null, drag = null, msgs = [];
+
+const fr = (x,d) => { if (Math.abs(x) < 0.5*Math.pow(10,-d)) x = 0; return x.toFixed(d).replace('.', ','); };
+const fmtU = U => fr(U, 2) + ' V';
+const fmtI = I => Math.abs(I) < 1 ? fr(I*1000, 1) + ' mA' : fr(I, 2) + ' A';
+const fmtR = R => R >= 1000 ? fr(R/1000, R >= 10000 ? 0 : 1) + ' kΩ' : (Number.isInteger(R) ? R : fr(R,1)) + ' Ω';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const getComp = id => S.comps.find(c => c.id === id);
+const getMeter = id => S.meters.find(m => m.id === id);
+
+function terms(c){ const [dx,dy] = DIRS[c.r]; return [[c.x,c.y],[c.x+2*dx,c.y+2*dy]]; }
+function nextLabel(type){
+  const pre = TYPES[type].prefix;
+  const nums = S.comps.filter(c => c.type === type).map(c => parseInt(c.label.slice(pre.length)) || 1);
+  if (type === 'gen' && !nums.length) return 'G';
+  return pre + (nums.length ? Math.max(...nums) + 1 : 1);
+}
+function makeComp(type, x, y, r, props, label){
+  const c = {id:uid++, type, x, y, r:r||0, label: label || nextLabel(type),
+    p: Object.assign(TYPES[type].def(), props||{}), tol: type === 'res' ? 1 + (Math.random()*2-1)*0.05 : 1, blown:false};
+  S.comps.push(c); return c;
+}
+function wires(...pts){ for (let i = 0; i < pts.length-1; i++) S.wires.push({id:uid++, x1:pts[i][0], y1:pts[i][1], x2:pts[i+1][0], y2:pts[i+1][1]}); }
+const METER_SLOTS = [[1060,20],[1250,20],[1060,440],[1250,440]];
+function makeMeter(){
+  if (S.meters.length >= 4) return null;
+  const taken = new Set(S.meters.map(m => m.slot));
+  let slot = 0; while (taken.has(slot)) slot++;
+  const [x,y] = METER_SLOTS[slot];
+  const nums = S.meters.map(m => m.num); let num = 1; while (nums.includes(num)) num++;
+  const m = {id:uid++, num, slot, label:'Multimètre ' + num, x, y, mode:0, fuseOk:true,
+    probes:{red:{x:x+130, y:y+330, on:false}, com:{x:x+50, y:y+330, on:false}}};
+  S.meters.push(m); return m;
+}
+
+/* ---------------- Simulation : analyse nodale ---------------- */
+function gauss(A, b){
+  const n = b.length;
+  for (let k = 0; k < n; k++){
+    let p = k, mx = Math.abs(A[k][k]);
+    for (let i = k+1; i < n; i++){ const v = Math.abs(A[i][k]); if (v > mx){ mx = v; p = i; } }
+    if (p !== k){ [A[k],A[p]] = [A[p],A[k]]; [b[k],b[p]] = [b[p],b[k]]; }
+    const piv = A[k][k] || 1e-30;
+    for (let i = k+1; i < n; i++){
+      const f = A[i][k] / piv; if (!f) continue;
+      const Ai = A[i], Ak = A[k];
+      for (let j = k; j < n; j++) Ai[j] -= f * Ak[j];
+      b[i] -= f * b[k];
+    }
+  }
+  const x = new Float64Array(n);
+  for (let i = n-1; i >= 0; i--){
+    let s = b[i]; for (let j = i+1; j < n; j++) s -= A[i][j] * x[j];
+    x[i] = s / (A[i][i] || 1e-30);
+  }
+  return x;
+}
+
+function buildEls(){
+  const els = [];
+  const add = (a,b,G,J) => { const e = {a,b,G,J,I:0,U:0}; els.push(e); return e; };
+  for (const c of S.comps){
+    c._el = null; const a = c._a, b = c._b;
+    switch (c.type){
+      case 'gen': { const rg = 0.02;
+        c._el = c._cc ? add(a,b,1e-6,c._cc*c.p.Imax) : add(a,b,1/rg,c.p.E/rg); break; }
+      case 'pile': { const r = Math.max(c.p.r, 1e-3); c._el = add(a,b,1/r,c.p.E/r); break; }
+      case 'res': { const R = Math.max(c.p.R * (opts.tol ? c.tol : 1), 1e-3); c._el = add(a,b,1/R,0); break; }
+      case 'lamp': if (!c.blown) c._el = add(a,b,c.p.Pn/(c.p.Un*c.p.Un),0); break;
+      case 'sw': if (c.p.closed) c._el = add(a,b,1e4,0); break;
+      case 'fuse': if (!c.blown) c._el = add(a,b,100,0); break;
+    }
+  }
+  for (const w of S.wires) w._el = add(w._a, w._b, 20, 0);   // fil réel ≈ 0,05 Ω
+  for (const m of S.meters){
+    m._el = null;
+    if (m._a < 0 || m._b < 0) continue;
+    const cal = CAL[m.mode];
+    if (cal.q === 'V') m._el = add(m._a, m._b, 1e-7, 0);              // 10 MΩ
+    else if (cal.q === 'A'){ if (!cal.fused || m.fuseOk) m._el = add(m._a, m._b, 1/cal.shunt, 0); }
+    else if (cal.q === 'O') m._el = add(m._a, m._b, 1e-9, cal.it);   // source de courant de test
+  }
+  return els;
+}
+
+let lastV = null;
+function solveOnce(n){
+  const els = buildEls();
+  const A = Array.from({length:n}, () => new Float64Array(n));
+  const z = new Float64Array(n);
+  for (let i = 0; i < n; i++) A[i][i] = 1e-9;
+  for (const e of els){
+    if (e.a === e.b) continue;
+    A[e.a][e.a] += e.G; A[e.b][e.b] += e.G; A[e.a][e.b] -= e.G; A[e.b][e.a] -= e.G;
+    z[e.a] += e.J; z[e.b] -= e.J;
+  }
+  const V = n ? gauss(A, z) : new Float64Array(0);
+  for (const e of els){ e.U = V[e.a] - V[e.b]; e.I = e.a === e.b ? 0 : e.G*e.U - e.J; }
+  return V;
+}
+
+function simulate(){
+  const nodes = new Map();
+  const nid = (x,y) => { const k = x + ',' + y; if (!nodes.has(k)) nodes.set(k, nodes.size); return nodes.get(k); };
+  for (const c of S.comps){ const [a,b] = terms(c); c._a = nid(...a); c._b = nid(...b); }
+  for (const w of S.wires){ w._a = nid(w.x1,w.y1); w._b = nid(w.x2,w.y2); }
+  for (const m of S.meters){
+    const r = m.probes.red, k = m.probes.com;
+    m._a = r.on ? nid(r.gx, r.gy) : -1; m._b = k.on ? nid(k.gx, k.gy) : -1;
+  }
+  const n = nodes.size;
+  for (const c of S.comps) c._cc = 0;
+  let V;
+  for (let outer = 0; outer < 40; outer++){
+    for (let inner = 0; inner < 12; inner++){
+      V = solveOnce(n);
+      let ch = false;
+      for (const g of S.comps){
+        if (g.type !== 'gen' || !g._el) continue;
+        const Iout = -g._el.I, U = g._el.U;
+        if (!g._cc && Math.abs(Iout) > g.p.Imax + 1e-9){ g._cc = Math.sign(Iout); ch = true; }
+        else if (g._cc && Math.abs(U) > g.p.E + 1e-6){ g._cc = 0; ch = true; }
+      }
+      if (!ch) break;
+    }
+    let blew = false;
+    for (const c of S.comps){
+      if (!c._el) continue;
+      if (c.type === 'fuse' && Math.abs(c._el.I) > c.p.Ic){ c.blown = true; blew = true; }
+      if (c.type === 'lamp' && Math.abs(c._el.U * c._el.I) > 1.6 * c.p.Pn){ c.blown = true; blew = true; }
+    }
+    for (const m of S.meters){
+      const cal = CAL[m.mode];
+      if (m._el && cal.q === 'A' && cal.fused && m.fuseOk && Math.abs(m._el.I) > METER_FUSE){ m.fuseOk = false; blew = true; }
+    }
+    if (!blew) break;
+    for (const c of S.comps) c._cc = 0;
+  }
+  lastV = V;
+  // grandeurs par dipôle
+  msgs = [];
+  let sourcesActive = false;
+  for (const c of S.comps){
+    const U = V[c._a] - V[c._b];
+    const I = c._el ? c._el.I : 0;
+    c._U = U; c._I = I; c._P = Math.abs(U*I);
+    if ((c.type === 'gen' || c.type === 'pile') && Math.abs(I) > 1e-6) sourcesActive = true;
+    if (c.type === 'gen' && c._cc) msgs.push(['', `${c.label} : limitation de courant (${fr(c.p.Imax,1)} A) — court-circuit probable !`]);
+    if (c.type === 'fuse' && c.blown) msgs.push(['', `Fusible ${c.label} fondu : le circuit est ouvert.`]);
+    if (c.type === 'lamp' && c.blown) msgs.push(['warn', `Lampe ${c.label} grillée.`]);
+    if (c.type === 'res' && c._P > 0.5) msgs.push(['warn', `${c.label} chauffe dangereusement (P = ${fr(c._P,2)} W).`]);
+  }
+  for (const m of S.meters){
+    if (!m.fuseOk) msgs.push(['', `${m.label} : fusible interne grillé (ampèremètre branché en dérivation ?). Sélectionne-le pour le remplacer.`]);
+    if (CAL[m.mode].q === 'O' && m._el && sourcesActive) msgs.push(['warn', `${m.label} : un ohmmètre s'utilise circuit hors tension !`]);
+  }
+}
+
+function meterReading(m){
+  const cal = CAL[m.mode];
+  if (cal.q === 'OFF') return null;
+  let v;
+  if (cal.q === 'V') v = m._el ? m._el.U : 0;
+  else if (cal.q === 'A') v = m._el ? m._el.I : 0;
+  else v = m._el ? m._el.U / cal.it : Infinity;
+  const dv = v * cal.scale, lim = 1999 / Math.pow(10, cal.dec);
+  if (!isFinite(dv) || Math.abs(dv) > lim + 1e-12) return {ol:true, unit:cal.unit};
+  let s = dv.toFixed(cal.dec);
+  if (/^-0\.?0*$/.test(s)) s = s.slice(1);
+  return {txt:s, unit:cal.unit, q:cal.q};
+}
+
+/* ---------------- Rendu SVG ---------------- */
+const DEFS = `<defs>
+<pattern id="grid" x="-20" y="-20" width="${CELL}" height="${CELL}" patternUnits="userSpaceOnUse"><circle cx="20" cy="20" r="1.8" fill="#b8c1d1"/></pattern>
+<radialGradient id="glow"><stop offset="0" stop-color="#fff6b0" stop-opacity="1"/><stop offset=".45" stop-color="#ffd23f" stop-opacity=".75"/><stop offset="1" stop-color="#ffb800" stop-opacity="0"/></radialGradient>
+</defs>`;
+
+function compSVG(c){
+  const [dx,dy] = DIRS[c.r], ax = c.x*CELL, ay = c.y*CELL, ang = c.r*90;
+  const cx = ax + dx*CELL, cy = ay + dy*CELL;
+  const up = t => `transform="rotate(${-ang})"`; // pour le texte
+  let b = '', extra = '';
+  const isSel = sel && sel.kind === 'comp' && sel.id === c.id;
+  switch (c.type){
+    case 'res': {
+      const P = c._P || 0, heat = P > 0.25 ? Math.min(1, (P-0.25)/0.75) : 0;
+      b = `<line class="sym" x1="0" y1="0" x2="22" y2="0"/><line class="sym" x1="58" y1="0" x2="80" y2="0"/>
+      <rect x="22" y="-9" width="36" height="18" fill="${heat ? `rgba(239,68,68,${0.25+0.6*heat})` : '#fff'}" stroke="#1f2937" stroke-width="3"/>`; break; }
+    case 'lamp': {
+      const br = c.blown ? 0 : Math.min(1.3, (c._P||0) / c.p.Pn);
+      const vis = Math.pow(Math.min(1, br), 0.6);
+      if (vis > 0.01) b += `<circle cx="40" cy="0" r="${16 + 26*vis}" fill="url(#glow)" opacity="${Math.min(1, vis*1.1)}"/>`;
+      b += `<line class="sym" x1="0" y1="0" x2="26" y2="0"/><line class="sym" x1="54" y1="0" x2="80" y2="0"/>
+      <circle cx="40" cy="0" r="14" fill="${vis > 0.01 ? `rgba(255,224,90,${0.25+0.75*vis})` : '#fff'}" stroke="#1f2937" stroke-width="3"/>`;
+      b += c.blown
+        ? `<path d="M30 -10 37 -3M43 3 50 10M50 -10 43 -3M37 3 30 10" stroke="#dc2626" stroke-width="2.5"/>`
+        : `<path d="M30 -10 50 10M50 -10 30 10" stroke="#1f2937" stroke-width="2.5"/>`;
+      break; }
+    case 'gen':
+      b = `<line class="sym" x1="0" y1="0" x2="20" y2="0"/><line class="sym" x1="60" y1="0" x2="80" y2="0"/>
+      <circle cx="40" cy="0" r="20" fill="${c._cc ? '#fee2e2' : '#fff'}" stroke="#1f2937" stroke-width="3"/>
+      <g transform="translate(40,0) rotate(${-ang})"><text text-anchor="middle" dy="7" font-size="20" font-weight="700" fill="#111827">G</text></g>
+      <g transform="translate(10,-14) rotate(${-ang})"><text text-anchor="middle" dy="5" font-size="16" font-weight="700" fill="#dc2626">+</text></g>`; break;
+    case 'pile':
+      b = `<line class="sym" x1="0" y1="0" x2="36" y2="0"/><line class="sym" x1="44" y1="0" x2="80" y2="0"/>
+      <line x1="36" y1="-18" x2="36" y2="18" stroke="#1f2937" stroke-width="2.5"/><line x1="44" y1="-9" x2="44" y2="9" stroke="#1f2937" stroke-width="6"/>
+      <g transform="translate(26,-16) rotate(${-ang})"><text text-anchor="middle" dy="5" font-size="16" font-weight="700" fill="#dc2626">+</text></g>`; break;
+    case 'sw':
+      b = `<line class="sym" x1="0" y1="0" x2="24" y2="0"/><line class="sym" x1="56" y1="0" x2="80" y2="0"/>
+      <circle cx="24" cy="0" r="3.5" fill="#1f2937"/><circle cx="56" cy="0" r="3.5" fill="#1f2937"/>
+      ${c.p.closed ? `<line class="sym" x1="24" y1="0" x2="56" y2="0"/>` : `<line class="sym" x1="24" y1="0" x2="53" y2="-17"/>`}`; break;
+    case 'fuse':
+      b = c.blown
+        ? `<line class="sym" x1="0" y1="0" x2="34" y2="0"/><line class="sym" x1="46" y1="0" x2="80" y2="0"/><rect x="22" y="-8" width="36" height="16" fill="#fee2e2" stroke="#dc2626" stroke-width="3"/><path d="M34 0 38 -5M46 0 42 5" stroke="#dc2626" stroke-width="2.5"/>`
+        : `<line class="sym" x1="0" y1="0" x2="80" y2="0"/><rect x="22" y="-8" width="36" height="16" fill="none" stroke="#1f2937" stroke-width="3"/>`; break;
+  }
+  const selBox = isSel ? `<rect x="-8" y="-26" width="96" height="52" rx="8" fill="rgba(37,99,235,.07)" stroke="#2563eb" stroke-width="2" stroke-dasharray="6 4"/>` : '';
+  // étiquettes
+  let v2 = '', bad = false;
+  switch (c.type){
+    case 'gen': v2 = fr(c.p.E,1) + ' V' + (c._cc ? ' · LIMIT.' : ''); bad = !!c._cc; break;
+    case 'pile': v2 = fr(c.p.E,1) + ' V'; break;
+    case 'res': v2 = fmtR(c.p.R); break;
+    case 'lamp': v2 = c.blown ? 'grillée' : ''; bad = c.blown; break;
+    case 'fuse': v2 = c.blown ? 'fondu' : fr(c.p.Ic, c.p.Ic % 1 ? 1 : 0) + ' A'; bad = c.blown; break;
+    case 'sw': v2 = c.p.closed ? 'fermé' : 'ouvert'; break;
+  }
+  const v3 = opts.vals && c.type !== 'sw' ? `U = ${fmtU(Math.abs(c._U||0))} · I = ${fmtI(Math.abs(c._I||0))}` : '';
+  const off = c.type === 'gen' ? 30 : 24;
+  let lab;
+  if (dx !== 0){
+    lab = `<text class="lbl" x="${cx}" y="${cy - off - (v2 ? 14 : 0)}" text-anchor="middle">${esc(c.label)}</text>` +
+      (v2 ? `<text class="lbl2 ${bad?'bad':''}" x="${cx}" y="${cy - off}" text-anchor="middle">${v2}</text>` : '') +
+      (v3 ? `<text class="lbl3" x="${cx}" y="${cy + off + 10}" text-anchor="middle">${v3}</text>` : '');
+  } else {
+    lab = `<text class="lbl" x="${cx + off}" y="${cy - (v2 ? 2 : -4)}">${esc(c.label)}</text>` +
+      (v2 ? `<text class="lbl2 ${bad?'bad':''}" x="${cx + off}" y="${cy + 12}">${v2}</text>` : '') +
+      (v3 ? `<text class="lbl3" x="${cx + off}" y="${cy + 26}">${v3.replace(' · ', '</text><text class="lbl3" x="' + (cx+off) + '" y="' + (cy+40) + '">')}</text>` : '');
+  }
+  return `<g class="comp" data-comp="${c.id}"><g transform="translate(${ax},${ay}) rotate(${ang})">${selBox}${b}
+    <rect class="hitc" x="10" y="-22" width="60" height="44" fill="transparent"/></g>${lab}</g>`;
+}
+
+function meterSVG(m){
+  const cal = CAL[m.mode], rd = meterReading(m);
+  const isSel = sel && sel.kind === 'meter' && sel.id === m.id;
+  let o = `<g transform="translate(${m.x},${m.y})">
+  <g class="meter" data-meter="${m.id}">
+    <rect width="180" height="280" rx="16" fill="#f5c518" stroke="${isSel ? '#2563eb' : '#a07d00'}" stroke-width="${isSel ? 4 : 2}"/>
+    <rect x="8" y="8" width="164" height="264" rx="10" fill="#2b2f36"/>
+    <text x="18" y="27" fill="#fff" font-size="12.5" font-weight="700">${esc(m.label)}</text>
+    <rect x="18" y="36" width="144" height="52" rx="5" fill="#c3d1a9" stroke="#7c8a66"/>`;
+  if (rd){
+    o += `<text x="24" y="49" font-size="8.5" fill="#3f4a32" font-weight="700">DC</text>`;
+    if (!m.fuseOk && cal.q === 'A' && cal.fused) o += `<text x="46" y="49" font-size="8.5" fill="#b91c1c" font-weight="700">FUSE</text>`;
+    if (rd.ol) o += `<text x="30" y="79" font-family="ui-monospace,Consolas,monospace" font-size="30" font-weight="700" fill="#1f2a1a">1</text>`;
+    else o += `<text x="134" y="79" text-anchor="end" font-family="ui-monospace,Consolas,monospace" font-size="29" font-weight="700" fill="#1f2a1a">${rd.txt}</text>`;
+    o += `<text x="138" y="79" font-size="12" font-weight="700" fill="#1f2a1a">${rd.unit}</text>`;
+  }
+  o += `</g>`;
+  // bouton Noter
+  o += `<g class="mbtn" data-note="${m.id}"><rect x="120" y="13" width="44" height="18" rx="4" fill="#475569"/><text x="142" y="26" text-anchor="middle" fill="#fff" font-size="10.5" pointer-events="none">Noter</text></g>`;
+  // sélecteur rotatif
+  const kx = 90, ky = 160, R = 60, N = CAL.length;
+  const angOf = i => (-90 + i * 360 / N) * Math.PI / 180;
+  o += `<circle cx="${kx}" cy="${ky}" r="25" fill="#111" stroke="#666" stroke-width="2" pointer-events="none"/>`;
+  const a = angOf(m.mode);
+  o += `<line x1="${kx}" y1="${ky}" x2="${kx + 22*Math.cos(a)}" y2="${ky + 22*Math.sin(a)}" stroke="#fff" stroke-width="4" stroke-linecap="round" pointer-events="none"/>`;
+  for (let i = 0; i < N; i++){
+    const t = angOf(i), x = kx + R*Math.cos(t), y = ky + R*Math.sin(t), on = i === m.mode;
+    o += `<g class="mpos" data-pos="${m.id}:${i}"><circle cx="${x}" cy="${y}" r="13" fill="${on ? 'rgba(255,255,255,.18)' : 'transparent'}"/>
+      <text x="${x}" y="${y+3}" text-anchor="middle" font-size="${on ? 9.5 : 8.5}" font-weight="${on ? 800 : 600}" fill="${on ? '#fff' : QCOL[CAL[i].q]}" pointer-events="none">${CAL[i].lab}</text></g>`;
+    o += `<line x1="${kx + 30*Math.cos(t)}" y1="${ky + 30*Math.sin(t)}" x2="${kx + 36*Math.cos(t)}" y2="${ky + 36*Math.sin(t)}" stroke="${QCOL[CAL[i].q]}" stroke-width="2" pointer-events="none"/>`;
+  }
+  // bornes
+  o += `<g pointer-events="none"><circle cx="60" cy="246" r="9" fill="#111" stroke="#999" stroke-width="2"/><circle cx="120" cy="246" r="9" fill="#b91c1c" stroke="#fca5a5" stroke-width="2"/>
+    <text x="60" y="267" text-anchor="middle" font-size="10" fill="#fff" font-weight="700">COM</text><text x="120" y="267" text-anchor="middle" font-size="10" fill="#fff" font-weight="700">V Ω A</text></g>`;
+  return o + `</g>`;
+}
+
+function probeSVG(m){
+  let o = '';
+  for (const [k, col, sx] of [['com','#111827',60],['red','#dc2626',120]]){
+    const p = m.probes[k], x0 = m.x + sx, y0 = m.y + 246;
+    o += `<path d="M${x0} ${y0} C ${x0} ${y0+90} ${p.x} ${p.y+90} ${p.x} ${p.y}" fill="none" stroke="${col}" stroke-width="4" stroke-linecap="round" opacity=".85" pointer-events="none"/>`;
+  }
+  for (const [k, col] of [['com','#111827'],['red','#dc2626']]){
+    const p = m.probes[k];
+    o += `<g class="probe" data-probe="${m.id}:${k}"><circle cx="${p.x}" cy="${p.y}" r="14" fill="transparent"/>
+      <circle cx="${p.x}" cy="${p.y}" r="8" fill="${col}" stroke="#fff" stroke-width="2.5"/>
+      ${p.on ? `<circle cx="${p.x}" cy="${p.y}" r="2.5" fill="#fff"/>` : ''}
+      <text x="${p.x + 10}" y="${p.y - 9}" font-size="11" font-weight="700" fill="${col}">${m.num}</text></g>`;
+  }
+  return o;
+}
+
+let flowEls = [], flowSpeed = {};
+function render(){
+  const o = [DEFS, `<rect width="${W}" height="${H}" fill="#fbfcfe"/><rect width="${W}" height="${H}" fill="url(#grid)"/>`];
+  flowSpeed = {};
+  // fils
+  for (const w of S.wires){
+    const x1 = w.x1*CELL, y1 = w.y1*CELL, x2 = w.x2*CELL, y2 = w.y2*CELL;
+    const isSel = sel && sel.kind === 'wire' && sel.id === w.id;
+    let fl = '';
+    const I = w._el ? w._el.I : 0;
+    if (opts.flow && Math.abs(I) > 2e-5){
+      const v = Math.min(170, Math.max(18, 32 * (Math.log10(Math.abs(I)) + 4.7)));
+      flowSpeed['w' + w.id] = Math.sign(I) * v;
+      fl = `<line class="flow" data-flow="w${w.id}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+    }
+    o.push(`<g class="wire${isSel ? ' sel' : ''}" data-wire="${w.id}"><line class="hit" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/><line class="w" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>${fl}</g>`);
+  }
+  // nœuds (≥ 3 connexions)
+  const cnt = new Map(), inc = k => cnt.set(k, (cnt.get(k)||0) + 1);
+  for (const c of S.comps) for (const [x,y] of terms(c)) inc(x+','+y);
+  for (const w of S.wires){ inc(w.x1+','+w.y1); inc(w.x2+','+w.y2); }
+  for (const [k,n] of cnt) if (n >= 3){ const [x,y] = k.split(',').map(Number); o.push(`<circle cx="${x*CELL}" cy="${y*CELL}" r="6" fill="#111827" pointer-events="none"/>`); }
+  for (const c of S.comps) o.push(compSVG(c));
+  for (const m of S.meters) o.push(meterSVG(m));
+  for (const m of S.meters) o.push(probeSVG(m));
+  if (drag && drag.kind === 'wire'){
+    const [a,b] = [drag.from, drag.to];
+    o.push(`<line x1="${a[0]*CELL}" y1="${a[1]*CELL}" x2="${b[0]*CELL}" y2="${b[1]*CELL}" stroke="#2563eb" stroke-width="3" stroke-dasharray="6 5" pointer-events="none"/><circle cx="${b[0]*CELL}" cy="${b[1]*CELL}" r="6" fill="#2563eb" pointer-events="none"/>`);
+  }
+  svg.innerHTML = o.join('');
+  flowEls = [...svg.querySelectorAll('[data-flow]')].map(el => ({el, id:el.dataset.flow}));
+  renderStatus();
+}
+
+function renderStatus(){
+  const st = $('#status');
+  st.innerHTML = msgs.length ? msgs.map(([cls,t]) => `<span class="${cls}">⚠ ${esc(t)}</span>`).join('')
+    : `<span class="okm">Circuit en fonctionnement normal.</span>`;
+}
+
+const offs = {}; let lastT = performance.now();
+function tick(t){
+  const dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
+  if (opts.flow) for (const f of flowEls){
+    const v = flowSpeed[f.id] || 0;
+    offs[f.id] = ((offs[f.id] || 0) - v*dt) % 1610;
+    f.el.setAttribute('stroke-dashoffset', offs[f.id].toFixed(2));
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* ---------------- Panneau de propriétés ---------------- */
+function renderProps(){
+  const el = $('#props'); let h = '';
+  if (sel && sel.kind === 'comp' && !getComp(sel.id)) sel = null;
+  if (sel && sel.kind === 'meter' && !getMeter(sel.id)) sel = null;
+  if (sel && sel.kind === 'wire' && !S.wires.find(w => w.id === sel.id)) sel = null;
+  if (!sel){
+    h = `<h2>Sélection</h2><p class="hint" style="padding:0">Clique sur un composant, un fil ou un multimètre pour le régler.</p>`;
+  } else if (sel.kind === 'comp'){
+    const c = getComp(sel.id);
+    h = `<h2>${TYPES[c.type].name}</h2><label class="f">Nom<input data-k="label" value="${esc(c.label)}"></label>`;
+    switch (c.type){
+      case 'gen':
+        h += `<label class="f">Tension réglée : <b id="genE">${fr(c.p.E,1)} V</b><input type="range" min="0" max="12" step="0.1" data-k="E" value="${c.p.E}"></label>
+        <label class="f">Limitation de courant (A)<input type="number" min="0.1" max="10" step="0.1" data-k="Imax" value="${c.p.Imax}"></label>`; break;
+      case 'pile':
+        h += `<label class="f">Force électromotrice E (V)<input type="number" min="0" step="0.1" data-k="E" value="${c.p.E}"></label>
+        <label class="f">Résistance interne r (Ω)<input type="number" min="0" step="0.1" data-k="r" value="${c.p.r}"></label>`; break;
+      case 'res':
+        h += `<label class="f">Résistance nominale (Ω)<input type="number" min="1" step="1" list="eseries" data-k="R" value="${c.p.R}"></label>
+        <datalist id="eseries">${[10,22,33,47,68,100,150,220,330,470,680,1000,2200,3300,4700,10000,22000,47000,100000].map(v=>`<option value="${v}">`).join('')}</datalist>
+        <p class="state" style="color:var(--muted)">${opts.tol ? 'Valeur réelle à ±5 % près (comme un vrai composant).' : 'Valeur exacte (tolérance désactivée).'}</p>`; break;
+      case 'lamp':
+        h += `<label class="f">Tension nominale (V)<input type="number" min="0.5" step="0.5" data-k="Un" value="${c.p.Un}"></label>
+        <label class="f">Puissance nominale (W)<input type="number" min="0.05" step="0.1" data-k="Pn" value="${c.p.Pn}"></label>
+        <p class="state">État : ${c.blown ? '<b class="bad">grillée (circuit ouvert)</b>' : 'en bon état'}</p>
+        <div class="row"><button data-act="blow">${c.blown ? 'Remplacer la lampe' : 'Simuler une lampe grillée'}</button></div>`; break;
+      case 'sw':
+        h += `<p class="state">État : <b>${c.p.closed ? 'fermé' : 'ouvert'}</b> (un clic sur l'interrupteur le bascule)</p>
+        <div class="row"><button data-act="swt">${c.p.closed ? 'Ouvrir' : 'Fermer'}</button></div>`; break;
+      case 'fuse':
+        h += `<label class="f">Calibre (A)<input type="number" min="0.05" step="0.1" data-k="Ic" value="${c.p.Ic}"></label>
+        <p class="state">État : ${c.blown ? '<b class="bad">fondu</b>' : 'intact'}</p>
+        ${c.blown ? '<div class="row"><button data-act="fix">Remplacer le fusible</button></div>' : ''}`; break;
+    }
+    h += `<div class="row"><button data-act="rot">↻ Pivoter</button><button data-act="del" class="danger">Supprimer</button></div>`;
+    if (opts.vals && c.type !== 'sw') h += `<div class="vals">U = ${fmtU(c._U||0)}<br>I = ${fmtI(c._I||0)}<br>P = ${fr(c._P||0, 3)} W</div>`;
+  } else if (sel.kind === 'wire'){
+    const w = S.wires.find(w => w.id === sel.id);
+    h = `<h2>Fil de connexion</h2>${opts.vals && w._el ? `<div class="vals">I = ${fmtI(Math.abs(w._el.I))}</div>` : ''}
+    <div class="row"><button data-act="del" class="danger">Supprimer le fil</button></div>`;
+  } else if (sel.kind === 'meter'){
+    const m = getMeter(sel.id), cal = CAL[m.mode];
+    const fn = {OFF:'éteint', V:'voltmètre', A:'ampèremètre', O:'ohmmètre'}[cal.q];
+    h = `<h2>${esc(m.label)}</h2><p class="state">Fonction : <b>${fn}</b>${cal.q !== 'OFF' ? ` — calibre ${cal.lab}` : ''}</p>
+    <p class="state">Fusible interne (entrée mA) : ${m.fuseOk ? 'intact' : '<b class="bad">grillé</b>'}</p>
+    <div class="row">${m.fuseOk ? '' : '<button data-act="mfix">Remplacer le fusible</button>'}
+    <button data-act="unplug">Débrancher les pointes</button><button data-act="del" class="danger">Retirer</button></div>`;
+  }
+  el.innerHTML = h;
+}
+
+$('#props').addEventListener('input', e => {
+  const k = e.target.dataset.k; if (!k || !sel || sel.kind !== 'comp') return;
+  const c = getComp(sel.id);
+  if (c.type === 'gen' && k === 'E'){ c.p.E = Number(e.target.value); $('#genE').textContent = fr(c.p.E,1) + ' V'; simulate(); render(); save(); }
+});
+$('#props').addEventListener('change', e => {
+  const k = e.target.dataset.k; if (!k || !sel) return;
+  if (sel.kind === 'comp'){
+    const c = getComp(sel.id);
+    if (k === 'label'){ c.label = e.target.value.trim().slice(0, 8) || c.label; update(); return; }
+    if (c.type === 'gen' && k === 'E') return;
+    const v = Number(String(e.target.value).replace(',', '.'));
+    const min = (k === 'E' || k === 'r') ? 0 : 1e-6;
+    if (isFinite(v) && v >= min) c.p[k] = v;
+    if (c.type === 'fuse' && k === 'Ic') c.blown = false;
+    update();
+  }
+});
+$('#props').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b || !sel) return;
+  const act = b.dataset.act;
+  if (act === 'del') return deleteSel();
+  if (sel.kind === 'comp'){
+    const c = getComp(sel.id);
+    if (act === 'rot') rotate(c);
+    if (act === 'blow') c.blown = !c.blown;
+    if (act === 'swt') c.p.closed = !c.p.closed;
+    if (act === 'fix') c.blown = false;
+  } else if (sel.kind === 'meter'){
+    const m = getMeter(sel.id);
+    if (act === 'mfix') m.fuseOk = true;
+    if (act === 'unplug'){
+      m.probes.red = {x:m.x+130, y:m.y+330, on:false}; m.probes.com = {x:m.x+50, y:m.y+330, on:false};
+    }
+  }
+  update();
+});
+
+/* ---------------- Interactions ---------------- */
+function toWorld(e){
+  const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+function nearestGrid(p){
+  const gx = Math.max(0, Math.min(COLS, Math.round(p.x / CELL))), gy = Math.max(0, Math.min(ROWS, Math.round(p.y / CELL)));
+  return {g:[gx,gy], d:Math.hypot(p.x - gx*CELL, p.y - gy*CELL)};
+}
+function rotate(c){
+  const [dx,dy] = DIRS[c.r], cx = c.x + dx, cy = c.y + dy;
+  c.r = (c.r + 1) % 4; const [nx,ny] = DIRS[c.r];
+  c.x = cx - nx; c.y = cy - ny;
+}
+function deleteSel(){
+  if (!sel) return;
+  if (sel.kind === 'comp') S.comps = S.comps.filter(c => c.id !== sel.id);
+  if (sel.kind === 'wire') S.wires = S.wires.filter(w => w.id !== sel.id);
+  if (sel.kind === 'meter') S.meters = S.meters.filter(m => m.id !== sel.id);
+  sel = null; update();
+}
+
+svg.addEventListener('pointerdown', e => {
+  if (e.button !== 0 && e.pointerType === 'mouse') return;
+  const p = toWorld(e), t = e.target;
+  const pr = t.closest('[data-probe]');
+  if (pr){
+    const [id, k] = pr.dataset.probe.split(':'); const m = getMeter(+id);
+    m.probes[k].on = false;
+    drag = {kind:'probe', m, k};
+    svg.setPointerCapture(e.pointerId); simulate(); render(); return;
+  }
+  const pos = t.closest('[data-pos]');
+  if (pos){
+    const [id, i] = pos.dataset.pos.split(':').map(Number); const m = getMeter(id);
+    m.mode = i; sel = {kind:'meter', id}; update(); return;
+  }
+  const nt = t.closest('[data-note]');
+  if (nt){ addReleve(getMeter(+nt.dataset.note)); return; }
+  const me = t.closest('[data-meter]');
+  if (me){
+    const m = getMeter(+me.dataset.meter);
+    sel = {kind:'meter', id:m.id};
+    drag = {kind:'meter', m, ox:p.x - m.x, oy:p.y - m.y};
+    svg.setPointerCapture(e.pointerId); render(); renderProps(); return;
+  }
+  const co = t.closest('[data-comp]');
+  if (co){
+    const c = getComp(+co.dataset.comp);
+    sel = {kind:'comp', id:c.id};
+    const tk = terms(c).map(([x,y]) => x + ',' + y);
+    const att = {wires:[], probes:[]};
+    for (const w of S.wires){
+      if (tk.includes(w.x1+','+w.y1)) att.wires.push([w,1,w.x1,w.y1]);
+      if (tk.includes(w.x2+','+w.y2)) att.wires.push([w,2,w.x2,w.y2]);
+    }
+    for (const m of S.meters) for (const k of ['red','com']){
+      const pp = m.probes[k]; if (pp.on && tk.includes(pp.gx+','+pp.gy)) att.probes.push([pp, pp.gx, pp.gy]);
+    }
+    drag = {kind:'comp', c, sx:p.x, sy:p.y, ox:c.x, oy:c.y, gx:0, gy:0, moved:false, att};
+    svg.setPointerCapture(e.pointerId); render(); renderProps(); return;
+  }
+  const ng = nearestGrid(p);
+  if (ng.d < 13){
+    drag = {kind:'wire', from:ng.g, to:ng.g};
+    svg.setPointerCapture(e.pointerId); render(); return;
+  }
+  const wi = t.closest('[data-wire]');
+  if (wi){ sel = {kind:'wire', id:+wi.dataset.wire}; render(); renderProps(); return; }
+  sel = null; render(); renderProps();
+});
+
+svg.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const p = toWorld(e);
+  if (drag.kind === 'probe'){
+    const pp = drag.m.probes[drag.k];
+    pp.x = Math.max(0, Math.min(W, p.x)); pp.y = Math.max(0, Math.min(H, p.y)); render();
+  } else if (drag.kind === 'meter'){
+    drag.m.x = Math.max(-100, Math.min(W - 80, p.x - drag.ox)); drag.m.y = Math.max(-100, Math.min(H - 80, p.y - drag.oy)); render();
+  } else if (drag.kind === 'comp'){
+    const gx = Math.round((p.x - drag.sx) / CELL), gy = Math.round((p.y - drag.sy) / CELL);
+    if (gx !== drag.gx || gy !== drag.gy){
+      drag.gx = gx; drag.gy = gy; drag.moved = true;
+      drag.c.x = drag.ox + gx; drag.c.y = drag.oy + gy;
+      for (const [w, end, x, y] of drag.att.wires){ w['x'+end] = x + gx; w['y'+end] = y + gy; }
+      for (const [pp, x, y] of drag.att.probes){ pp.gx = x + gx; pp.gy = y + gy; pp.x = pp.gx*CELL; pp.y = pp.gy*CELL; }
+      render();
+    }
+  } else if (drag.kind === 'wire'){
+    const ng = nearestGrid(p);
+    if (ng.g[0] !== drag.to[0] || ng.g[1] !== drag.to[1]){ drag.to = ng.g; render(); }
+  }
+});
+
+function endDrag(){
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.kind === 'probe'){
+    const pp = d.m.probes[d.k], ng = nearestGrid(pp);
+    if (ng.d < 20){ pp.on = true; pp.gx = ng.g[0]; pp.gy = ng.g[1]; pp.x = pp.gx*CELL; pp.y = pp.gy*CELL; }
+    update();
+  } else if (d.kind === 'comp'){
+    if (!d.moved && d.c.type === 'sw') d.c.p.closed = !d.c.p.closed;
+    update();
+  } else if (d.kind === 'wire'){
+    const [a,b] = [d.from, d.to];
+    if (a[0] !== b[0] || a[1] !== b[1]){
+      const dup = S.wires.some(w => (w.x1===a[0]&&w.y1===a[1]&&w.x2===b[0]&&w.y2===b[1]) || (w.x1===b[0]&&w.y1===b[1]&&w.x2===a[0]&&w.y2===a[1]));
+      if (!dup) S.wires.push({id:uid++, x1:a[0], y1:a[1], x2:b[0], y2:b[1]});
+      update();
+    } else render();
+  } else { render(); save(); }
+}
+svg.addEventListener('pointerup', endDrag);
+svg.addEventListener('pointercancel', endDrag);
+svg.addEventListener('dblclick', e => {
+  const co = e.target.closest('[data-comp]'); if (!co) return;
+  const c = getComp(+co.dataset.comp);
+  if (c.type === 'sw') c.p.closed = !c.p.closed; // annule la double bascule
+  rotate(c); update();
+});
+document.addEventListener('keydown', e => {
+  if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  if ((e.key === 'Delete' || e.key === 'Backspace') && sel){ e.preventDefault(); deleteSel(); }
+  if ((e.key === 'r' || e.key === 'R') && sel && sel.kind === 'comp'){ rotate(getComp(sel.id)); update(); }
+  if (e.key === 'Escape'){ sel = null; render(); renderProps(); }
+});
+
+/* ---------------- Ajout de composants ---------------- */
+function findFree(){
+  const used = new Set();
+  for (const c of S.comps){ const [a,b] = terms(c); used.add(a+''); used.add(b+''); used.add([(a[0]+b[0])/2,(a[1]+b[1])/2]+''); }
+  for (const w of S.wires){ used.add([w.x1,w.y1]+''); used.add([w.x2,w.y2]+''); }
+  for (let y = 2; y < ROWS - 1; y += 2) for (let x = 2; x < 24; x += 3)
+    if (![[x,y],[x+1,y],[x+2,y]].some(p => used.has(p+''))) return [x,y];
+  return [2,2];
+}
+document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => {
+  const [x,y] = findFree(); const c = makeComp(b.dataset.add, x, y, 0);
+  sel = {kind:'comp', id:c.id}; update();
+}));
+$('#bMeter').addEventListener('click', () => { const m = makeMeter(); if (m){ sel = {kind:'meter', id:m.id}; update(); } });
+$('#bClear').addEventListener('click', () => { S.comps = []; S.wires = []; S.meters = []; makeMeter(); makeMeter(); sel = null; update(); });
+
+/* ---------------- Relevés ---------------- */
+function addReleve(m){
+  const rd = meterReading(m);
+  if (!rd) return;
+  const val = rd.ol ? 'dépassement (1)' : rd.txt.replace('.', ',') + ' ' + rd.unit;
+  const q = CAL[m.mode].q, base = {V:'U', A:'I', O:'R'}[q];
+  S.releves.push({id:uid++, name: base + ' = ', value: val, meter: m.label + ' (' + CAL[m.mode].lab + ')'});
+  renderReleves(); save();
+  const btn = svg.querySelector(`[data-note="${m.id}"] rect`); if (btn){ btn.setAttribute('fill', '#16a34a'); setTimeout(() => btn.setAttribute('fill', '#475569'), 350); }
+}
+function renderReleves(){
+  const tb = $('#relBody');
+  $('#relCount').textContent = S.releves.length ? `(${S.releves.length})` : '';
+  tb.innerHTML = S.releves.length ? S.releves.map(r => `<tr><td><input data-rel="${r.id}" value="${esc(r.name)}"></td><td><b>${esc(r.value)}</b></td><td>${esc(r.meter)}</td><td><button data-rdel="${r.id}" title="Supprimer">✕</button></td></tr>`).join('')
+    : `<tr><td colspan="4" class="empty">Aucun relevé. Clique sur « Noter » sur un multimètre pour enregistrer la valeur affichée.</td></tr>`;
+}
+$('#relBody').addEventListener('input', e => { const id = +e.target.dataset.rel; const r = S.releves.find(r => r.id === id); if (r){ r.name = e.target.value; save(); } });
+$('#relBody').addEventListener('click', e => { const b = e.target.closest('[data-rdel]'); if (!b) return; S.releves = S.releves.filter(r => r.id !== +b.dataset.rdel); renderReleves(); save(); });
+$('#bRelClear').addEventListener('click', () => { S.releves = []; renderReleves(); save(); });
+$('#bCopy').addEventListener('click', async () => {
+  const txt = 'Grandeur\tValeur\tAppareil\n' + S.releves.map(r => `${r.name}\t${r.value}\t${r.meter}`).join('\n');
+  try { await navigator.clipboard.writeText(txt); $('#bCopy').textContent = 'Copié ✓'; } catch { $('#bCopy').textContent = 'Copie impossible'; }
+  setTimeout(() => $('#bCopy').textContent = 'Copier le tableau', 1500);
+});
+document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('[data-tab]').forEach(x => x.classList.toggle('on', x === b));
+  $('#tab-tp').hidden = b.dataset.tab !== 'tp'; $('#tab-rel').hidden = b.dataset.tab !== 'rel';
+}));
+
+/* ---------------- Montages du TP ---------------- */
+function preset(id){
+  S.comps = []; S.wires = []; S.meters = [];
+  if (id === 'I'){
+    makeComp('gen', 3, 8, 1, {E:6, Imax:3}, 'G');
+    makeComp('res', 15, 6, 1, {R:100}, 'R1');
+    makeComp('res', 15, 10, 1, {R:220}, 'R2');
+    wires([3,8],[3,4],[15,4],[15,6]);
+    wires([15,8],[15,10]);
+    wires([15,12],[15,14],[3,14],[3,10]);
+  } else if (id === 'II'){
+    makeComp('gen', 2, 8, 1, {E:6, Imax:3}, 'G');
+    makeComp('res', 7, 4, 0, {R:100}, 'R1');
+    makeComp('res', 14, 8, 1, {R:220}, 'R2');
+    makeComp('res', 20, 8, 1, {R:330}, 'R3');
+    wires([2,8],[2,4],[7,4]);
+    wires([9,4],[14,4]);
+    wires([14,4],[20,4]);
+    wires([14,4],[14,8]);
+    wires([20,4],[20,8]);
+    wires([14,10],[14,14]);
+    wires([20,10],[20,14],[14,14]);
+    wires([14,14],[2,14],[2,10]);
+  } else if (id === 'IIIs'){
+    makeComp('gen', 2, 9, 1, {E:12, Imax:3}, 'G');
+    makeComp('fuse', 2, 5, 1, {Ic:3}, 'F');
+    for (let i = 0; i < 10; i++) makeComp('lamp', 4 + 2*i, 4, 0, {Un:12, Pn:2.4}, 'L' + (i+1));
+    wires([2,9],[2,7]); wires([2,5],[2,4],[4,4]);
+    wires([24,4],[25,4],[25,15],[2,15],[2,11]);
+  } else if (id === 'IIIp'){
+    makeComp('gen', 2, 9, 1, {E:12, Imax:3}, 'G');
+    makeComp('fuse', 2, 5, 1, {Ic:3}, 'F');
+    wires([2,9],[2,7]); wires([2,5],[2,3]);
+    let prev = 2;
+    for (let i = 0; i < 10; i++){
+      const x = 5 + 2*i;
+      makeComp('lamp', x, 8, 1, {Un:12, Pn:2.4}, 'L' + (i+1));
+      wires([prev,3],[x,3]); wires([x,3],[x,8]); wires([x,10],[x,15]);
+      wires([x,15],[prev === 2 ? 2 : prev,15]);
+      prev = x;
+    }
+    wires([2,15],[2,11]);
+  }
+  makeMeter(); makeMeter();
+  sel = null; update();
+  $('#stage').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => preset(b.dataset.preset)));
+
+/* ---------------- Options, sauvegarde ---------------- */
+$('#oFlow').addEventListener('change', e => { opts.flow = e.target.checked; render(); save(); });
+$('#oTol').addEventListener('change', e => { opts.tol = e.target.checked; update(); });
+$('#oVals').addEventListener('change', e => { opts.vals = e.target.checked; render(); renderProps(); save(); });
+
+function serial(){ return JSON.stringify({v:1, opts, S}, (k,v) => k.startsWith('_') ? undefined : v); }
+let saveT = null;
+function save(){ clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(KEY, serial()); } catch {} }, 300); }
+function loadData(d){
+  if (!d || !d.S || !Array.isArray(d.S.comps) || !Array.isArray(d.S.wires) || !Array.isArray(d.S.meters)) return false;
+  S = {comps:d.S.comps, wires:d.S.wires, meters:d.S.meters, releves:Array.isArray(d.S.releves) ? d.S.releves : []};
+  S.comps = S.comps.filter(c => TYPES[c.type]);
+  if (d.opts) Object.assign(opts, d.opts);
+  const ids = [...S.comps, ...S.wires, ...S.meters, ...S.releves].map(x => x.id || 0);
+  uid = (ids.length ? Math.max(...ids) : 0) + 1;
+  $('#oFlow').checked = opts.flow; $('#oTol').checked = opts.tol; $('#oVals').checked = opts.vals;
+  return true;
+}
+$('#bExport').addEventListener('click', () => {
+  const blob = new Blob([serial()], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'montage-circuit.json';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$('#bImport').addEventListener('click', () => $('#fImport').click());
+$('#fImport').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { if (loadData(JSON.parse(await f.text()))){ sel = null; update(); renderReleves(); } } catch {}
+  e.target.value = '';
+});
+
+function update(){ simulate(); render(); renderProps(); save(); }
+
+(function init(){
+  let ok = false;
+  try { const raw = localStorage.getItem(KEY); if (raw) ok = loadData(JSON.parse(raw)); } catch {}
+  if (ok){ update(); } else preset('I');
+  renderReleves();
+})();
+</script>
+</body>
+</html>

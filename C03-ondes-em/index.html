@@ -103,8 +103,9 @@ sub,sup{line-height:0}
   <div class="grid2">
     <div class="card">
       <h3>L'onde <span id="domBadge" class="domain-badge">Visible</span></h3>
-      <canvas id="wave" height="200"></canvas>
-      <p class="hint" style="margin-top:8px">La longueur d'onde <b>λ</b> est la période spatiale de l'onde. Le nombre d'oscillations affichées est indicatif : λ varie sur 16 ordres de grandeur !</p>
+      <canvas id="wave" height="250"></canvas>
+      <div class="row" style="margin-top:8px"><button class="btn" id="playWave">▶ Faire propager l'onde</button></div>
+      <p class="hint" style="margin-top:8px">L'onde est représentée <b>à un instant donné</b> : valeur du champ électrique E en fonction de la position x le long de la direction de propagation. La longueur d'onde <b>λ</b> est la période spatiale : distance entre deux crêtes successives.</p>
     </div>
     <div class="card">
       <h3>Les grandeurs</h3>
@@ -290,7 +291,7 @@ function drawBar(){
 }
 function sup(k){const m={'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};return String(k).split('').map(ch=>m[ch]).join('')}
 
-let wavePhase=0, waveState={n:5,col:'#888'};
+let wavePhase=0, waveState={n:5,col:'#888',lam:5.5e-7}, wavePlaying=false, waveRaf=null;
 function updT1(){
   const lg=+slider.value, lam=Math.pow(10,lg), nu=c/lam, E=h*nu;
   document.getElementById('vLam').textContent=lamUnit(lam);
@@ -302,29 +303,74 @@ function updT1(){
   const badge=document.getElementById('domBadge'); badge.textContent=d.n;
   const nm=lam*1e9; const vis=nm>=380&&nm<=780;
   badge.style.background=vis?wlRGB(nm):d.col;
-  waveState={n:2.2+(LMAX-lg)/(LMAX-LMIN)*11.8, col:vis?wlRGB(nm):d.col};
-  drawBar();
+  waveState={n:2.2+(LMAX-lg)/(LMAX-LMIN)*11.8, col:vis?wlRGB(nm):d.col, lam};
+  drawBar(); drawWave();
 }
 slider.oninput=updT1;
+function waveUnit(m){ // unité adaptée pour graduer l'axe des x
+  const u=[[1e3,'km'],[1,'m'],[1e-2,'cm'],[1e-3,'mm'],[1e-6,'µm'],[1e-9,'nm'],[1e-12,'pm']];
+  for(const [f,n] of u){ if(m>=f*0.9999) return [f,n]; }
+  return [1e-15,'fm'];
+}
+function arrowHead(ctx,x,y,ang){ctx.save();ctx.translate(x,y);ctx.rotate(ang);ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(-9,-4.5);ctx.lineTo(-9,4.5);ctx.closePath();ctx.fill();ctx.restore()}
 function drawWave(){
-  const cv=document.getElementById('wave'); if(!cv.offsetParent) return;
+  const cv=document.getElementById('wave'); if(!cv||!cv.offsetParent) return;
   const [ctx,W,H]=fitCanvas(cv);
   ctx.clearRect(0,0,W,H);
-  const mid=H/2, A=H*0.32, L=W/waveState.n;
-  ctx.strokeStyle=css('--line'); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(0,mid); ctx.lineTo(W,mid); ctx.stroke();
+  const ink=css('--ink'), mut=css('--muted'), line=css('--line'), panel=css('--panel');
+  const ml=54, mr=46, mt=48, mb=36;               // marges (place pour les axes)
+  const PW=W-ml-mr, mid=(mt+H-mb)/2, A=(H-mt-mb)/2*0.85;
+  const L=PW/Math.min(waveState.n,PW/40), lam=waveState.lam; // au moins 40 px par λ (lisible sur téléphone)
+  // repères ±Emax
+  ctx.strokeStyle=line; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+  [mid-A,mid+A].forEach(y=>{ctx.beginPath();ctx.moveTo(ml,y);ctx.lineTo(ml+PW,y);ctx.stroke()});
+  ctx.setLineDash([]);
+  // courbe E(x) à un instant donné (crêtes en x = 0, λ, 2λ… quand l'onde est figée)
   ctx.strokeStyle=waveState.col; ctx.lineWidth=3; ctx.beginPath();
-  for(let px=0;px<=W;px+=1){const y=mid-A*Math.sin(2*Math.PI*(px/L)-wavePhase);px?ctx.lineTo(px,y):ctx.moveTo(px,y)}
+  for(let px=0;px<=PW;px++){const y=mid-A*Math.cos(2*Math.PI*px/L-wavePhase);px?ctx.lineTo(ml+px,y):ctx.moveTo(ml+px,y)}
   ctx.stroke();
-  // cote λ entre deux crêtes
-  const off=((wavePhase/(2*Math.PI))%1)*L; let x0=L/4+off; while(x0>L*1.25) x0-=L;
-  if(L>30 && x0+L<W){
-    ctx.strokeStyle=css('--ink'); ctx.fillStyle=css('--ink'); ctx.lineWidth=1.5;
-    const y=mid-A-14; ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x0+L,y); ctx.stroke();
-    [[x0,1],[x0+L,-1]].forEach(([xx,s])=>{ctx.beginPath();ctx.moveTo(xx,y);ctx.lineTo(xx+7*s,y-4);ctx.lineTo(xx+7*s,y+4);ctx.fill()});
-    ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x0,mid-A); ctx.moveTo(x0+L,y); ctx.lineTo(x0+L,mid-A); ctx.stroke(); ctx.setLineDash([]);
-    ctx.font='italic 600 16px Georgia,serif'; ctx.textAlign='center'; ctx.fillText('λ',x0+L/2,y-6);
+  // axes
+  ctx.strokeStyle=ink; ctx.fillStyle=ink; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(ml,mid); ctx.lineTo(W-8,mid); ctx.stroke(); arrowHead(ctx,W-6,mid,0);
+  ctx.beginPath(); ctx.moveTo(ml,H-mb+8); ctx.lineTo(ml,22); ctx.stroke(); arrowHead(ctx,ml,18,-Math.PI/2);
+  // titre de l'axe vertical
+  ctx.textAlign='left'; ctx.font='italic 600 16px Georgia,serif'; ctx.fillText('E',ml+10,26);
+  ctx.font='12px system-ui'; ctx.fillStyle=mut; ctx.fillText('(V·m⁻¹)  champ électrique',ml+24,25);
+  // graduations de l'axe vertical
+  ctx.fillStyle=ink; ctx.textAlign='right'; ctx.font='12px system-ui';
+  [[mid-A,'Eₘₐₓ'],[mid,'0'],[mid+A,'−Eₘₐₓ']].forEach(([y,t])=>{ctx.fillRect(ml-4,y-0.75,8,1.5);ctx.fillText(t,ml-8,y+4)});
+  // titre de l'axe horizontal
+  const [uf,un]=waveUnit(lam);
+  ctx.font='italic 600 15px Georgia,serif'; ctx.fillText('x',W-30,mid-10);
+  ctx.font='12px system-ui'; ctx.fillText('('+un+')',W-2,mid-10);
+  // graduations de l'axe horizontal (multiples de λ, en valeur réelle)
+  const step=[1,2,5,10,20].find(k=>k*L>=58)||20;
+  ctx.textAlign='center';
+  for(let k=step;k*L<=PW+0.5;k+=step){
+    const xx=ml+k*L, v=k*lam/uf;
+    ctx.fillStyle=ink; ctx.fillRect(xx-0.75,mid-4,1.5,8);
+    const t=(+v.toPrecision(3)).toLocaleString('fr-FR'), tw=ctx.measureText(t).width;
+    ctx.fillStyle=panel; ctx.fillRect(xx-tw/2-3,mid+7,tw+6,16);
+    ctx.fillStyle=ink; ctx.fillText(t,xx,mid+20);
+  }
+  // cote λ FIXE entre deux crêtes (x = λ et x = 2λ, ou 0 et λ si la place manque)
+  const kc=2*L<=PW-10?1:0;
+  if(L>34 && (kc+1)*L<=PW+0.5){
+    const x0=ml+kc*L, x1=ml+(kc+1)*L, y=mid-A-12;
+    ctx.strokeStyle=ink; ctx.fillStyle=ink; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x1,y); ctx.stroke();
+    arrowHead(ctx,x0,y,Math.PI); arrowHead(ctx,x1,y,0);
+    if(!wavePlaying){ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(x0,y);ctx.lineTo(x0,mid-A);ctx.moveTo(x1,y);ctx.lineTo(x1,mid-A);ctx.stroke();ctx.setLineDash([])}
+    ctx.font='italic 600 15px Georgia,serif'; ctx.textAlign='center';
+    ctx.fillText('λ = '+lamUnit(lam),(x0+x1)/2,y-6);
   }
 }
+function waveLoop(){ if(!wavePlaying){waveRaf=null;return} wavePhase+=0.05; drawWave(); waveRaf=requestAnimationFrame(waveLoop) }
+document.getElementById('playWave').onclick=function(){
+  wavePlaying=!wavePlaying;
+  this.textContent=wavePlaying?'⏸ Figer l\'onde':'▶ Faire propager l\'onde';
+  if(wavePlaying){ if(!waveRaf) waveLoop(); } else { wavePhase=0; drawWave(); }
+};
 
 /* =========================================================
    TAB 2 — Niveaux d'énergie
@@ -570,10 +616,9 @@ document.getElementById('resetQ').onclick=buildQuiz;
 
 /* ---------- Boucle & init ---------- */
 function redrawAll(){drawBar();drawWave();drawDiag();drawLineSpec();drawVega()}
-function loop(){wavePhase+=0.06;drawWave();requestAnimationFrame(loop)}
 window.addEventListener('resize',redrawAll);
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',redrawAll);
-updT1(); buildQuiz(); resetAtom(); updAbsLabel(); loop();
+updT1(); buildQuiz(); resetAtom(); updAbsLabel();
 </script>
 </body>
 </html>
