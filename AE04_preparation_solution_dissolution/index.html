@@ -30,9 +30,8 @@
   header.head .theme{border-bottom:2px solid var(--ink);background:#e9ecf1;font-size:.9em;letter-spacing:.03em}
   header.head .code{grid-row:1/3;grid-column:2;border-left:2px solid var(--ink);display:flex;align-items:center;font-size:1.6em}
   header.head .title{font-size:1.15em}
-  .id-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:16px 0 0;padding-bottom:40px}
-  .id-row .save-box{position:relative}
-  .id-row .save-box .save-note{position:absolute;left:0;top:calc(100% + 4px);width:280px;line-height:1.3}
+  .id-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:16px 0 0;padding-bottom:0}
+  .id-row .save-box{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .id-row .save-note{font-size:.9em;color:var(--warn);font-style:italic}
   .id-row .btn-save{font:inherit;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
   .id-row label{display:flex;gap:8px;align-items:center;font-weight:600}
@@ -129,7 +128,6 @@
 
   <div class="id-row">
     <label>N° de poste, Groupe <input type="text" data-k="poste" class="num" style="width:80px" placeholder="ex. : 7A"></label>
-    <label>NOMS <input type="text" data-k="noms" style="width:320px;max-width:60vw" placeholder="ex. : DUPONT Léa – MARTIN Hugo"></label>
     <div class="save-box"><button class="btn-save" type="button" id="saveBtn">💾 Enregistrer mon travail</button>
     <span class="save-note">📁 Voir consigne professeur pour le dossier d’enregistrement.</span></div>
     <span id="saveMsg" aria-live="polite"></span>
@@ -544,7 +542,7 @@
     const date = d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + "h" + pad(d.getMinutes()) + "m" + pad(d.getSeconds()) + "s";
     const numAE = (document.querySelector('[data-k="ae_num"]').value || "").trim().replace(/[\\/:*?"<>|]/g, "");
     const prefix = "AE0" + numAE + " - " + date + " - ";
-    // Anonymat : seul le numéro de poste figure dans le nom du fichier (les noms restent dans la fiche)
+    // Anonymat : seul le numéro de poste identifie la copie
     const clean = t => t.replace(/[\\/:*?"<>|]/g, "-");
     const postePart = v => "Poste " + (String(v || "").trim().replace(/^poste\s*/i, "") || "xx");
     const poste = document.querySelector('[data-k="poste"]').value.trim();
@@ -556,10 +554,11 @@
         msg.textContent = "✔ Enregistré : " + h.name; return;
       } catch(e){ if (e && e.name === "AbortError") { msg.textContent = "Enregistrement annulé."; return; } }
     }
-    // Navigateurs sans sélecteur de dossier (Firefox…) : l'élève indique seulement le numéro de poste
-    let part = prompt("Numéro de poste :", poste);
-    if (part === null) { msg.textContent = "Enregistrement annulé."; return; }
-    let name = clean(prefix + postePart(part)) + ".html";
+    // Navigateurs sans sélecteur de dossier (Firefox…) : simple confirmation, le nom de fichier reprend le n° de poste saisi dans la fiche
+    if (!confirm("Cliquer sur OK, puis choisir ensuite le dossier d'enregistrement")) {
+      msg.textContent = "Enregistrement annulé."; return;
+    }
+    let name = clean(prefix + postePart(poste)) + ".html";
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     msg.textContent = "✔ Téléchargé : " + name;

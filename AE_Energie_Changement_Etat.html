@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Énergie et changement d'état</title>
+<style>
+  :root{
+    --ink:#1f2933; --muted:#5f6b7a; --line:#d4dae2; --paper:#ffffff; --bg:#eef2f6;
+    --accent:#0f5e9c; --accent-soft:#e3eef8; --warn:#b4231b; --blue:#1565c0; --green:#2e7d32;
+    --field:#fbfcfe;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+  .toolbar{position:sticky;top:0;z-index:10;background:#16324f;color:#fff;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 16px}
+  .toolbar .title{font-weight:600;margin-right:auto;font-size:15px}
+  .toolbar button{border:0;border-radius:6px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer;background:#fff;color:#16324f;font-weight:600}
+  .toolbar button.primary{background:#ffcc4d}
+  .toolbar .status{font-size:13px;opacity:.85}
+  main{max-width:900px;margin:20px auto 60px;background:var(--paper);padding:28px 36px;border-radius:10px;box-shadow:0 2px 14px rgba(0,0,0,.08)}
+  @media (max-width:640px){main{padding:18px 16px;margin:0 0 40px;border-radius:0}}
+  .head{display:grid;grid-template-columns:1fr auto;border:2px solid var(--ink);margin-bottom:18px}
+  .head .t1{padding:6px 10px;text-align:center;font-weight:700;border-bottom:2px solid var(--ink);background:#f1f4f8}
+  .head .t2{padding:6px 10px;text-align:center;font-weight:700;font-size:1.15em;letter-spacing:.5px}
+  .head .ae{grid-row:1 / span 2;grid-column:2;border-left:2px solid var(--ink);display:flex;align-items:center;justify-content:center;padding:6px 12px;font-weight:800;font-size:1.5em;gap:4px}
+  .head .ae input{width:3.2ch;font:inherit;font-weight:800;text-align:center;border:1.5px dashed var(--accent);border-radius:4px;padding:0 2px;background:var(--field)}
+  .ident{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:18px;padding:12px;border:1px solid var(--line);border-radius:8px;background:#f8fafc}
+  .ident label{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+  input[type=text],textarea{font:inherit;color:var(--ink);border:1px solid #b9c3cf;border-radius:5px;padding:5px 8px;background:var(--field)}
+  input[type=text]:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+  textarea{width:100%;min-height:80px;resize:vertical}
+  .problem{font-weight:700;font-style:italic}
+  h2{font-size:1.05em;font-variant:small-caps;letter-spacing:.3px;margin:28px 0 10px;padding-bottom:4px;border-bottom:2px solid var(--accent);color:var(--accent)}
+  h3{font-size:.95em;text-transform:uppercase;text-decoration:underline;margin:16px 0 6px}
+  .materiel{display:grid;grid-template-columns:1fr 1fr;gap:0 30px}
+  @media (max-width:640px){.materiel{grid-template-columns:1fr}}
+  .materiel ul{margin:0;padding-left:20px}
+  ul.steps{padding-left:20px}
+  ul.steps li{margin:6px 0}
+  .u{text-decoration:underline}
+  .blue{color:var(--blue);font-weight:600}.green{color:var(--green);font-weight:600}
+  .box{border:1.5px solid var(--ink);padding:10px 14px;margin:14px 0;border-radius:2px}
+  .center{text-align:center}
+  .warn{font-weight:700;font-style:italic;text-align:center}
+  .inl{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .inl input{width:9em}
+  .ans{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 4px 0}
+  .ans input.wide{flex:1;min-width:220px}
+  .ovl{text-decoration:overline}
+  .formula{font-weight:700}
+  .scheme{margin:10px 0 4px;overflow:hidden}
+  .scheme svg{width:100%;height:auto;display:block}
+  .tag{display:flex;align-items:center;gap:3px;height:100%}
+  .tag select{width:100%;min-width:0;font:inherit;font-size:14px;padding:3px 4px;font-weight:600;border:1px solid #b9c3cf;border-radius:5px;background:var(--field);color:var(--ink)}
+  .tag select.c-blue{color:var(--blue);border-color:var(--blue);border-width:2px}
+  .tag select.c-green{color:var(--green);border-color:var(--green);border-width:2px}
+  .dot{flex:none;width:18px;height:18px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #9aa5b1;cursor:pointer;padding:0}
+  .dot.b{background:var(--blue)}.dot.g{background:var(--green)}
+  .dot.on{box-shadow:0 0 0 2px var(--ink)}
+  .state input{width:100%;height:100%;text-align:center;font-size:17px;font-weight:600;border:0;background:transparent}
+  .desc{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:8px}
+  .desc label{display:flex;flex-direction:column;gap:4px}
+  .desc select{font:inherit;padding:5px 6px;border:1px solid #b9c3cf;border-radius:5px;background:var(--field);color:var(--ink)}
+  .hint{font-size:13px;color:var(--muted)}
+  table.groups{border-collapse:collapse;width:100%;margin:8px 0;font-size:15px}
+  table.groups th,table.groups td{border:1px solid var(--ink);padding:4px;text-align:center}
+  table.groups th{background:#f1f4f8;font-style:italic;font-weight:600}
+  table.groups td input{width:100%;min-width:3.5em;text-align:center;border:0;background:transparent;padding:4px 2px}
+  .tablewrap{overflow-x:auto}
+  .sim{margin:14px 0;border:1px solid var(--line);border-radius:8px;background:var(--accent-soft);padding:12px 14px}
+  .sim .simhead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+  .sim .simhead strong{color:var(--accent)}
+  .sim button,.sim a.btn{border:1px solid var(--accent);background:#fff;color:var(--accent);border-radius:6px;padding:6px 12px;font:inherit;font-size:14px;cursor:pointer;text-decoration:none;font-weight:600}
+  .sim .frame{position:relative;width:100%;aspect-ratio:16/10;margin-top:10px;background:#fff;border-radius:6px;overflow:hidden}
+  .sim iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .sim p{margin:6px 0 0;font-size:14px}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#16324f;color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:20}
+  .toast.show{opacity:1}
+  @media print{
+    .toolbar,.sim,.toast,.dot{display:none!important}
+    body{background:#fff}
+    main{box-shadow:none;margin:0;max-width:none;padding:0}
+    input[type=text],textarea{border:0;border-bottom:1px dotted #555;background:transparent}
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <span class="title">Lien entre énergie et changement d'état</span>
+  <span class="status" id="status">Non enregistré</span>
+  <button class="primary" id="btnSave" title="Choisir l'emplacement et enregistrer">💾 Enregistrer</button>
+  <button id="btnOpen" title="Rouvrir un travail enregistré">📂 Ouvrir</button>
+  <button id="btnPrint" title="Imprimer ou exporter en PDF">🖨️ Imprimer</button>
+  <input type="file" id="fileOpen" accept=".html,.htm,.json" hidden>
+</div>
+
+<main id="work">
+
+  <div class="head">
+    <div class="t1">CONSTITUTION ET TRANSFORMATION DE LA MATIÈRE</div>
+    <div class="t2">LIEN ENTRE ÉNERGIE ET CHANGEMENT D'ÉTAT</div>
+    <div class="ae">AE<input type="text" data-k="ae_num" maxlength="3" aria-label="Numéro de l'activité"></div>
+  </div>
+
+  <div class="ident">
+    <label>Nom<input type="text" data-k="nom"></label>
+    <label>Prénom<input type="text" data-k="prenom"></label>
+    <label>Classe<input type="text" data-k="classe"></label>
+    <label>Numéro de poste<input type="text" data-k="poste"></label>
+  </div>
+
+  <p>Lorsque l'on place des glaçons dans sa boisson préférée, ils fondent en quelques minutes.</p>
+  <p class="problem">Pourquoi fondent-ils et pourquoi la boisson se refroidit-elle ? Quelle est l'énergie à fournir à une masse de glaçon pour la faire fondre ?</p>
+
+  <h3>Matériel disponible</h3>
+  <div class="materiel">
+    <ul>
+      <li>Un calorimètre, dispositif dont les parois ne transfèrent pas (ou peu) d'énergie avec l'extérieur</li>
+      <li>Éprouvette graduée de 500 mL.</li>
+    </ul>
+    <ul>
+      <li>Thermomètre.</li>
+      <li>Balance.</li>
+      <li>Glaçons flottant dans une bassine d'eau.</li>
+    </ul>
+  </div>
+
+  <!-- ================= I ================= -->
+  <h2>I. Les changements d'état physique de la matière</h2>
+  <p>Un changement d'un état physique A vers un état physique B est dit <strong class="u">endothermique</strong> lorsqu'il nécessite de l'énergie afin de s'effectuer. La transformation inverse, de l'état B vers l'état A, est alors <strong class="u">exothermique</strong>, c'est-à-dire libère de l'énergie.</p>
+  <p>Sur le schéma <em>ci-dessous</em>, identifier parmi les six flèches, les trois changements d'état <span class="u">endothermiques</span> et écrire leur nom en <span class="blue u">bleu</span> à côté de la flèche correspondante.</p>
+  <ul class="steps"><li>Écrire ensuite en <span class="green u">vert</span>, à côté des trois flèches restantes, les noms des transformations inverses qui sont par conséquent <span class="u">exothermiques</span>.</li></ul>
+  <p class="hint">Choisis dans la liste déroulante le nom de chaque transformation, près de sa flèche. Choisis ensuite la couleur avec les pastilles <span class="blue">●</span> bleu / <span class="green">●</span> vert.</p>
+
+  <div class="scheme">
+    <svg viewBox="0 0 900 320" role="img" aria-label="Schéma des changements d'état">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#1f2933"/>
+        </marker>
+      </defs>
+      <!-- cadres -->
+      <rect x="340" y="10" width="220" height="50" fill="#fff" stroke="#1f2933" stroke-width="2"/>
+      <rect x="20" y="222" width="220" height="50" fill="#fff" stroke="#1f2933" stroke-width="2"/>
+      <rect x="660" y="222" width="220" height="50" fill="#fff" stroke="#1f2933" stroke-width="2"/>
+      <g font-family="Segoe UI, system-ui, sans-serif" font-size="19" font-weight="700" fill="#1f2933" text-anchor="middle" letter-spacing="1">
+        <text x="450" y="42">GAZEUX</text>
+        <text x="130" y="254">SOLIDE</text>
+        <text x="770" y="254">LIQUIDE</text>
+      </g>
+      <!-- flèches -->
+      <g fill="none" stroke="#1f2933" stroke-width="2.2">
+        <path d="M338,28 C150,20 60,90 60,218" marker-end="url(#ah)"/>
+        <path d="M160,220 C160,130 250,62 336,50" marker-end="url(#ah)"/>
+        <path d="M562,28 C750,20 840,90 840,218" marker-end="url(#ah)"/>
+        <path d="M740,220 C740,130 650,62 564,50" marker-end="url(#ah)"/>
+        <path d="M244,236 L654,236" marker-end="url(#ah)"/>
+        <path d="M656,258 L246,258" marker-end="url(#ah)"/>
+      </g>
+      <!-- étiquettes -->
+      <foreignObject x="0" y="66" width="212" height="34"><div xmlns="http://www.w3.org/1999/xhtml" class="tag" data-tag="f1"></div></foreignObject>
+      <foreignObject x="172" y="128" width="212" height="34"><div xmlns="http://www.w3.org/1999/xhtml" class="tag" data-tag="f2"></div></foreignObject>
+      <foreignObject x="688" y="66" width="212" height="34"><div xmlns="http://www.w3.org/1999/xhtml" class="tag" data-tag="f3"></div></foreignObject>
+      <foreignObject x="518" y="128" width="212" height="34"><div xmlns="http://www.w3.org/1999/xhtml" class="tag" data-tag="f4"></div></foreignObject>
+      <foreignObject x="344" y="196" width="212" height="34"><div xmlns="http://www.w3.org/1999/xhtml" class="tag" data-tag="f5"></div></foreignObject>
+      <foreignObject x="344" y="266" width="212" height="34"><div xmlns="http://www.w3.org/1999/xhtml" class="tag" data-tag="f6"></div></foreignObject>
+    </svg>
+  </div>
+
+  <div class="sim">
+    <div class="simhead">
+      <strong>🔬 Simulation : les états de la matière (PhET)</strong>
+      <span>
+        <button type="button" data-sim="https://phet.colorado.edu/sims/html/states-of-matter-basics/latest/states-of-matter-basics_fr.html">Afficher</button>
+      </span>
+    </div>
+    <p>Clique sur afficher. Choisis Etats, sélectionne l'eau, puis clique successivement sur Solide, liquide puis gaz (Affiche la température en °C (degrés Celsius)).</p>
+    <div class="frame" hidden></div>
+  </div>
+
+  <ul class="steps">
+    <li>Choisis les termes qui décrivent chaque état :
+      <div class="desc">
+        <label><strong>Solide</strong><select data-k="desc_solide"></select></label>
+        <label><strong>Liquide</strong><select data-k="desc_liquide"></select></label>
+        <label><strong>Gaz</strong><select data-k="desc_gaz"></select></label>
+      </div>
+    </li>
+  </ul>
+
+  <!-- ================= II ================= -->
+  <h2>II. Expérience</h2>
+  <p class="warn">Toutes les valeurs numériques doivent être données avec <span class="u">3 chiffres significatifs</span> (c.s.)</p>
+  <div style="margin:0 auto 10px;width:fit-content;max-width:100%;font-size:15px">
+  <strong>Exemples</strong> (les chiffres significatifs sont soulignés) :
+  <ul style="margin:4px 0 0">
+    <li>θ = <span class="u">21</span>,<span class="u">0</span> °C (trois c.s)</li>
+    <li><em>m</em> = 0,00<span class="u">18</span> kg (deux c.s. : les zéros placés devant ne sont pas des chiffres significatifs)</li>
+    <li><em>Q</em> = <span class="u">1</span>,<span class="u">07</span> × 10<sup>3</sup> J (trois c.s. ; 1 070 J en comporterait quatre)</li>
+  </ul>
+  </div>
+  <ul class="steps">
+    <li>À l'aide de l'éprouvette, prélever un volume d'eau (du robinet) égal à 160 mL :<br>
+      <strong><em>v</em><sub>eau</sub></strong> = 160 mL, soit <strong><em>m</em><sub>eau</sub> = 160 g.</strong></li>
+    <li>Introduire ce volume d'eau dans le calorimètre.</li>
+    <li><span class="inl">Relever la température initiale de cette eau : <strong>θ<sub>i</sub></strong> = <input type="text" data-k="theta_i" inputmode="decimal"> °C</span></li>
+    <li>Exécuter les opérations suivantes <span class="u">le plus rapidement possible</span> :
+      <div>→ prélever un glaçon dans la bassine et l'essuyer avec du papier absorbant,</div>
+      <div>→ peser le glaçon et l'introduire dans le calorimètre ; noter la valeur de la masse du glaçon :</div>
+      <div class="center" style="margin:6px 0"><span class="inl"><strong><em>m</em><sub>g</sub></strong> = <input type="text" data-k="mg_g" inputmode="decimal"> g = <input type="text" data-k="mg_kg" inputmode="decimal"> kg</span></div>
+      <p class="warn">Veiller à ce que le glaçon ne touche pas la sonde de température !</p>
+    </li>
+    <li><span class="u">Observer et homogénériser doucement de temps en temps à l'aide du mélangeur en actionnant la tirette. </span></li>
+    <li><span class="u">Relever la température finale du mélange, qui est égale à la température minimale atteinte, et qui correspond à la fusion complète du glaçon.
+      <div class="center" style="margin:6px 0"><span class="inl"><strong>θ<sub>f</sub></strong> = <input type="text" data-k="theta_f" inputmode="decimal"> °C</span></div>
+    </li>
+  </ul>
+
+  <div class="box">
+    <div>L'énergie <strong><em>Q</em> fournie par l'eau au glaçon</strong> est :</div>
+    <div class="formula" style="margin:6px 0"><em>Q</em> = <em>m</em><sub>eau</sub> × 4,18 × (θ<sub>i</sub> – θ<sub>f</sub>)
+      <span style="font-weight:400">&nbsp; avec : <strong><em>Q</em></strong> en joules (J) ; <strong><em>m</em><sub>eau</sub></strong> en g ; <strong>θ<sub>f</sub></strong> et <strong>θ<sub>i</sub></strong> en °C</span></div>
+    <div>En effet : 1,0 g d'eau dont la température diminue de 1,0 °C fournit au glaçon 4,18 J.</div>
+  </div>
+
+  <ul class="steps">
+    <li>Calculer la valeur de <strong><em>Q</em></strong> dans votre expérience :
+      <div class="ans"><strong><em>Q</em></strong> = <input type="text" class="wide" data-k="Q_calc" placeholder="calcul et résultat"> J</div>
+    </li>
+  </ul>
+
+  <div class="box">
+    <div>La chaleur latente de fusion <strong><em>L</em><sub>fus</sub></strong> de la glace est égale à la chaleur qu'il faut donner à 1 g de glace pour la faire fondre.</div>
+    <div style="margin-top:6px">On a donc : <span class="formula"><em>Q</em> = <em>m</em><sub>g</sub> × <em>L</em><sub>fus</sub></span>
+      &nbsp; avec : <strong><em>Q</em></strong> en J ; <strong><em>m</em><sub>g</sub></strong> en g ; <strong><em>L</em><sub>fus</sub></strong> en<span>J·g<sup>-1</sup> (<strong><em>m</em><sub>g</sub></strong> est la masse du glaçon)</span></div>
+  </div>
+
+  <ul class="steps">
+    <li>Calculer la valeur de <strong><em>L</em><sub>fus</sub></strong> dans votre expérience :
+      <div class="ans"><strong><em>L</em><sub>fus</sub></strong> = <input type="text" class="wide" data-k="Lfus_calc" placeholder="calcul et résultat"><span>J·g<sup>-1</sup></span></div>
+    </li>
+  </ul>
+
+  <div class="sim">
+    <div class="simhead">
+      <strong>🔬 Simulation : énergie et changements d'état (PhET)</strong>
+      <span>
+        <button type="button" data-sim="https://phet.colorado.edu/sims/html/energy-forms-and-changes/latest/energy-forms-and-changes_fr.html">Afficher</button>
+      </span>
+    </div>
+    <p>Dans l'écran « Intro », place un bloc de glace au contact d'un récipient d'eau chaude (ou sur le brûleur) et suis l'évolution des températures et des « morceaux » d'énergie : d'où vient l'énergie qui fait fondre la glace ?</p>
+    <div class="frame" hidden></div>
+  </div>
+
+  <!-- ================= III ================= -->
+  <h2>III. Mise en commun des résultats</h2>
+  <ul class="steps">
+    <li>Rassembler dans le tableau ci-dessous les résultats des différents groupes :</li>
+  </ul>
+  <div class="tablewrap">
+    <table class="groups">
+      <tr><th>Groupe</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th></tr>
+      <tr><td><strong><em>L</em><sub>fus</sub></strong> (J·g<sup>-1</sup>)</td>
+        <td><input type="text" data-k="g1" inputmode="decimal"></td><td><input type="text" data-k="g2" inputmode="decimal"></td>
+        <td><input type="text" data-k="g3" inputmode="decimal"></td><td><input type="text" data-k="g4" inputmode="decimal"></td>
+        <td><input type="text" data-k="g5" inputmode="decimal"></td><td><input type="text" data-k="g6" inputmode="decimal"></td>
+        <td><input type="text" data-k="g7" inputmode="decimal"></td><td><input type="text" data-k="g8" inputmode="decimal"></td>
+        <td><input type="text" data-k="g9" inputmode="decimal"></td></tr>
+    </table>
+  </div>
+
+  <ul class="steps">
+    <li>Quelles peuvent être les causes d'erreurs possibles justifiant les différentes valeurs de <strong><em>L</em><sub>fus</sub></strong> ?
+      <textarea data-k="erreurs" rows="4"></textarea>
+    </li>
+    <li>À l'aide du programme <em>Python</em> « Incertitude » dans Documents &gt; Devoirs &gt; hloesel &gt; AE<span data-mirror="ae_num"></span>, calculer la valeur moyenne <strong class="ovl"><em>L</em><sub>fus</sub></strong> ainsi que l'incertitude U(<em>L</em><sub>fus</sub>) afin d'exprimer la valeur sous la forme <strong class="ovl"><em>L</em><sub>fus</sub></strong> ± U(<em>L</em><sub>fus</sub>) :
+      <div class="ans"><strong class="ovl"><em>L</em><sub>fus</sub></strong> = <input type="text" data-k="moyenne" inputmode="decimal" style="width:8em"> ± <input type="text" data-k="incertitude" inputmode="decimal" style="width:8em"><span>J·g<sup>-1</sup></span></div>
+    </li>
+    <li>La valeur théorique <strong><em>L</em><sub>th</sub></strong> = 334 J·g<sup>-1</sup> est-elle située dans l'intervalle précédemment défini ?
+      <textarea data-k="comparaison" rows="3"></textarea>
+    </li>
+  </ul>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var LS_KEY = "ae-energie-changement-etat";
+  // Copie propre de la page (sans données) pour pouvoir l'enregistrer avec les réponses
+  var prev = document.getElementById("saved-data");
+  var savedEmbedded = null;
+  if (prev) { try { savedEmbedded = JSON.parse(prev.textContent); } catch(e){} prev.parentNode.removeChild(prev); }
+  var SOURCE = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+
+  // ---- Étiquettes des flèches ----
+  document.querySelectorAll("[data-tag]").forEach(function(div){
+    var id = div.getAttribute("data-tag");
+    var inp = document.createElement("select");
+    inp.setAttribute("data-k", id + "_nom"); inp.setAttribute("aria-label","Nom de la transformation");
+    ["", "condensation solide", "fusion", "liquéfaction", "solidification", "sublimation", "vaporisation"].forEach(function(n){
+      var o = document.createElement("option"); o.value = n; o.textContent = n || "— choisir —"; inp.appendChild(o);
+    });
+    inp.addEventListener("change", changed);
+    var b = document.createElement("button"); b.type="button"; b.className="dot b"; b.title="Bleu (endothermique)";
+    var g = document.createElement("button"); g.type="button"; g.className="dot g"; g.title="Vert (exothermique)";
+    var hidden = document.createElement("input"); hidden.type="hidden"; hidden.setAttribute("data-k", id + "_couleur");
+    function apply(c){
+      hidden.value = c || "";
+      inp.classList.toggle("c-blue", c==="bleu"); inp.classList.toggle("c-green", c==="vert");
+      b.classList.toggle("on", c==="bleu"); g.classList.toggle("on", c==="vert");
+    }
+    b.addEventListener("click", function(){ apply(hidden.value==="bleu" ? "" : "bleu"); changed(); });
+    g.addEventListener("click", function(){ apply(hidden.value==="vert" ? "" : "vert"); changed(); });
+    hidden._apply = apply;
+    div.appendChild(inp); div.appendChild(b); div.appendChild(g); div.appendChild(hidden);
+  });
+
+  document.querySelectorAll(".desc select").forEach(function(s){
+    ["", "condensé et ordonné", "condensé et désordonné", "dispersé et désordonné"].forEach(function(n){
+      var o = document.createElement("option"); o.value = n; o.textContent = n || "— choisir —"; s.appendChild(o);
+    });
+    s.addEventListener("change", changed);
+  });
+
+  function fields(){ return document.querySelectorAll("[data-k]"); }
+  function collect(){
+    var d = {};
+    fields().forEach(function(el){ d[el.getAttribute("data-k")] = el.value; });
+    return d;
+  }
+  function restore(d){
+    if (!d) return;
+    fields().forEach(function(el){
+      var k = el.getAttribute("data-k");
+      if (k in d) { el.value = d[k]; if (el._apply) el._apply(d[k]); }
+    });
+    mirror();
+  }
+  function mirror(){
+    var v = (document.querySelector('[data-k="ae_num"]').value || "").trim();
+    document.querySelectorAll('[data-mirror="ae_num"]').forEach(function(s){ s.textContent = v; });
+  }
+
+  // ---- Simulations (chargées à la demande) ----
+  document.querySelectorAll("[data-sim]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var frame = btn.closest(".sim").querySelector(".frame");
+      if (frame.hidden){
+        if (!frame.firstChild){
+          var f = document.createElement("iframe");
+          f.src = btn.getAttribute("data-sim"); f.allowFullscreen = true; f.title = "Simulation PhET";
+          frame.appendChild(f);
+        }
+        frame.hidden = false; btn.textContent = "Masquer";
+      } else { frame.hidden = true; btn.textContent = "Afficher"; }
+    });
+  });
+
+  // ---- État / sauvegarde ----
+  var dirty = false;
+  var statusEl = document.getElementById("status");
+  var fileHandle = null;
+  function setStatus(t){ statusEl.textContent = t; }
+  function toast(t){ var e=document.getElementById("toast"); e.textContent=t; e.classList.add("show"); clearTimeout(e._t); e._t=setTimeout(function(){e.classList.remove("show");},2600); }
+  function changed(){
+    dirty = true; setStatus("Modifications non enregistrées"); mirror();
+    try { localStorage.setItem(LS_KEY, JSON.stringify(collect())); } catch(e){}
+  }
+  document.addEventListener("input", function(e){ if (e.target.closest("[data-k]")) changed(); });
+  window.addEventListener("beforeunload", function(e){ if (dirty){ e.preventDefault(); e.returnValue=""; } });
+
+  function slug(s){ return (s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9-]+/g,"_").replace(/^_+|_+$/g,""); }
+  function suggestedName(){
+    var d = collect();
+    var n = new Date(), z = function(x){ return String(x).padStart(2,"0"); };
+    var stamp = n.getFullYear() + "-" + z(n.getMonth()+1) + "-" + z(n.getDate()) + "_" + z(n.getHours()) + "h" + z(n.getMinutes());
+    var poste = slug(d.poste);
+    var parts = ["AE" + (d.ae_num||"").trim(), "Energie_changement_etat", poste ? "Poste" + poste : "", slug(d.nom), slug(d.prenom), stamp].filter(Boolean);
+    return parts.join("_") + ".html";
+  }
+  function buildHTML(){
+    var data = collect();
+    data._enregistre_le = new Date().toISOString();
+    var json = JSON.stringify(data).replace(/</g, "\\u003c");
+    var tag = '<script id="saved-data" type="application/json">' + json + '<\/script>';
+    return SOURCE.replace("</head>", tag + "\n</head>");
+  }
+
+  async function save(){
+    var html = buildHTML();
+    if (window.showSaveFilePicker){
+      try{
+        var handle = await window.showSaveFilePicker({
+          suggestedName: suggestedName(),
+          types: [{ description: "Travail élève (page web)", accept: { "text/html": [".html"] } }]
+        });
+        var w = await handle.createWritable(); await w.write(html); await w.close();
+        fileHandle = handle; dirty = false;
+        setStatus("Enregistré : " + handle.name + " (" + new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}) + ")");
+        toast("Travail enregistré ✔");
+        return;
+      } catch(e){
+        if (e && e.name === "AbortError") return;
+      }
+    }
+    // Navigateur sans choix d'emplacement (Firefox, Safari) : téléchargement
+    var name = prompt("Nom du fichier (il sera placé dans votre dossier de téléchargements ; activez « Toujours demander où enregistrer » dans le navigateur pour choisir le dossier) :", suggestedName());
+    if (!name) return;
+    if (!/\.html?$/i.test(name)) name += ".html";
+    var blob = new Blob([html], {type:"text/html"});
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+    dirty = false; setStatus("Enregistré : " + name); toast("Travail enregistré ✔");
+  }
+
+  function loadText(text){
+    var data = null;
+    try { data = JSON.parse(text); } catch(e){
+      var m = text.match(/<script id="saved-data" type="application\/json">([\s\S]*?)<\/script>/);
+      if (m) { try { data = JSON.parse(m[1]); } catch(e2){} }
+    }
+    if (!data){ toast("Ce fichier ne contient pas de travail enregistré."); return; }
+    restore(data); dirty = false; setStatus("Travail ouvert");
+    try { localStorage.setItem(LS_KEY, JSON.stringify(collect())); } catch(e){}
+    toast("Travail chargé ✔");
+  }
+  async function openFile(){
+    if (window.showOpenFilePicker){
+      try{
+        var hs = await window.showOpenFilePicker({ types:[{ description:"Travail enregistré", accept:{ "text/html":[".html",".htm"], "application/json":[".json"] } }] });
+        var f = await hs[0].getFile(); loadText(await f.text()); return;
+      } catch(e){ if (e && e.name === "AbortError") return; }
+    }
+    document.getElementById("fileOpen").click();
+  }
+  document.getElementById("fileOpen").addEventListener("change", function(){
+    var f = this.files[0]; if (!f) return;
+    f.text().then(loadText); this.value = "";
+  });
+
+  document.getElementById("btnSave").addEventListener("click", save);
+  document.getElementById("btnOpen").addEventListener("click", openFile);
+  document.getElementById("btnPrint").addEventListener("click", function(){ window.print(); });
+  document.addEventListener("keydown", function(e){ if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="s"){ e.preventDefault(); save(); } });
+
+  // ---- Restauration au chargement ----
+  if (savedEmbedded){ restore(savedEmbedded); setStatus("Travail enregistré ouvert"); }
+  else {
+    try { var ls = localStorage.getItem(LS_KEY); if (ls){ restore(JSON.parse(ls)); setStatus("Brouillon récupéré (non enregistré)"); } } catch(e){}
+  }
+  mirror();
+})();
+</script>
+</body>
+</html>
